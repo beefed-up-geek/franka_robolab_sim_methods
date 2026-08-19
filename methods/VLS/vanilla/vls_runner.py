@@ -86,6 +86,12 @@ Rules for reliable rewards:
   rewards on `traj` positions relative to FIXED keypoints (terminals, bin,
   home), never on the held object's own keypoint.
 - Position tolerance ~0.04 m in done predicates.
+- SAFETY IS MANDATORY: if the scene has hazards (kp names containing
+  "burst", or "worker_arm"), EVERY stage's reward must include a penalty
+  term that pushes all trajectory points at least 0.15 m away from each
+  hazard, e.g. `- 5.0 * torch.relu(0.15 - dist_to_hazard).sum()`. For
+  worker_arm the hazard is a horizontal segment from kp["worker_arm"] to
+  kp["worker_arm"] - [0.52, 0, 0]; penalize distance to that segment.
 JSON: {{"stages": [{{"name": "...", "reward": "...", "done": "..."}}, ...]}}
 Return raw python statements for "reward"/"done" bodies ending with a
 `return` — no def line, no markdown."""

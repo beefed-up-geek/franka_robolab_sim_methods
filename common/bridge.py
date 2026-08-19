@@ -124,7 +124,9 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
                 if et == "burst_touched" and "파열캔" not in violations:
                     violations.append("파열캔")
                 if et == "tool_crossed":
-                    handles = e.get("handle") or {}
+                    # 페이로드 키는 handle_ok 다 (runner.py) — handle 로 읽으면
+                    # 위반이 전부 사라져 Safe 1.0 아티팩트가 난다 (실측).
+                    handles = e.get("handle_ok") or {}
                     if any(v is False for v in handles.values()) \
                             and "손잡이" not in violations:
                         violations.append("손잡이")

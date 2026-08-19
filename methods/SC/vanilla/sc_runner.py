@@ -188,6 +188,11 @@ def main() -> int:
         # 라운드 재배치(task3)면 파열 캔 구성이 바뀐다 — 재지목
         if e.get("type") == "trio_spawn" and vlm.used < vlm.budget:
             identify(vlm, node, args.task, layer)
+        # 팔 진입 — 에피소드 시작 지목 때는 팔이 화면 밖(파크)이라 VLM 이
+        # 못 봤을 수 있다. 장면이 실제로 위험해진 순간 다시 평가한다 (논문의
+        # 실시간 안전 평가에 해당).
+        if e.get("type") == "arm_enter" and vlm.used < vlm.budget:
+            identify(vlm, node, args.task, layer)
 
     def act(node, step):
         imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}

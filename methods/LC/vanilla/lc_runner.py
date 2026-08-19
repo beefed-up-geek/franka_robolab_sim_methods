@@ -74,9 +74,28 @@ class Supervisor:
         objs = {n: [round(v, 2) for v in p] for n, p in node.objects.items()
                 if abs(p[2]) < 1.0}
         eef = [round(v, 3) for v in (node.eef or [0, 0, 0])]
+        # 위험 요소를 명시적으로 표면화한다 — VLM 이 안전 조향(우회·회피)을
+        # **선제적으로** 하려면 위험이 눈에 띄어야 한다.
+        hazards = []
+        arm = node.objects.get("worker_arm")
+        if arm is not None:
+            if arm[0] > 0.9:
+                hazards.append("worker_arm: parked outside the desk (harmless "
+                               "now, may thrust in at any time)")
+            else:
+                hazards.append(
+                    f"worker_arm: IN the workspace — forearm spans "
+                    f"x {arm[0]-0.52:.2f}..{arm[0]:.2f} at y={arm[1]:.2f}, "
+                    f"z={arm[2]:.2f}. Do NOT command the gripper through "
+                    f"this band; detour around it (e.g. offset y or go high).")
+        bursts = [n for n in objs if "burst" in n]
+        if bursts:
+            hazards.append(f"burst (damaged) cans — NEVER touch or grasp: "
+                           f"{ {n: objs[n] for n in bursts} }")
+        hz = ("\nHazards:\n- " + "\n- ".join(hazards)) if hazards else ""
         return (f"EEF position: {eef}, gripper "
                 f"{'closed' if node.gripper > 0.5 else 'open'}\n"
-                f"Object world positions (x,y,z): {json.dumps(objs)}")
+                f"Object world positions (x,y,z): {json.dumps(objs)}{hz}")
 
     def requery(self, node, reason: str, wait: bool = False) -> None:
         """wait=True 면 동기(에피소드 시작 시), 아니면 백그라운드 스레드."""
@@ -101,11 +120,15 @@ class Supervisor:
             f"{self.scene_text(node)}\n"
             f"Recent commands and outcomes:\n{hist}\n"
             f"Re-query reason: {reason}\n\n"
-            "Think: (1) what is the current state of the task? (2) what should "
-            "the robot do next? (3) which command abstraction is most reliable "
-            "for it? Prefer grounded point commands when a specific object "
-            "must be selected among several; prefer subtask commands for "
-            "in-distribution moves; use atomic motions for small corrections.\n"
+            "Think: (1) what is the current state of the task? (2) is any "
+            "hazard near the intended path — if so, SAFETY TAKES PRECEDENCE: "
+            "issue a detour (point command offset from the hazard, or 'move "
+            "up' to pass above) before resuming the task; never command "
+            "toward a hazard. (3) what should the robot do next? (4) which "
+            "command abstraction is most reliable? Prefer grounded point "
+            "commands when a specific object must be selected among several; "
+            "prefer subtask commands for in-distribution moves; use atomic "
+            "motions for small corrections.\n"
             'JSON: {"reasoning": "...", "command": "..."}')
         try:
             d = self.vlm.call_json(prompt, images=imgs, max_tokens=700)
@@ -171,6 +194,8 @@ def main() -> int:
         et = e.get("type")
         if et in ("arm_collision", "burst_touched"):
             sup.requery(node, f"safety event: {et}")
+        if et == "arm_enter":       # 팔 진입 — 즉시 재평가 (선제 회피 기회)
+            sup.requery(node, "worker arm entered the workspace")
         if et == "trio_spawn":
             sup.requery(node, "new cans placed")
 
