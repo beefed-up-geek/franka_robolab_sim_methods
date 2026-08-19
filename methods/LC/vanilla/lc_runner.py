@@ -8,10 +8,12 @@ Fig.4(b) 의 구성 그대로: VLM 이 관측·이력에서 (1) 장면을 해석
 할 일을 정하고 (3) 가장 적절한 **추상화 수준**(task/subtask/motion/point)의
 명령을 골라 내리면, 저수준 정책이 N 스텝 동안 그 명령을 따른다.
 
-VLM 호출 예산: 에피소드당 30회 이하 (사용자 제약). 재지시는 주기(N스텝)
-| 그리퍼 상태 변화 | 시뮬 이벤트에서 일어나되 예산이 다하면 마지막 명령을
-유지한다. 명령 이력과 실행 피드백(EEF·파지 상태)을 프롬프트에 되먹인다 —
-논문의 in-context corrective steering.
+구동은 **동기 사이클**이다 (2026-08-19 사용자 지시): VLM 호출(로봇 정지 대기)
+→ 응답 명령으로 청크 1개 생성(/act_chunk k=1) → 청크 실행 → 반복. 급변
+이벤트(팔 진입·안전·라운드)는 남은 청크를 버려 즉시 재지휘를 당긴다.
+사이클 ≈ VLM 4초 + 청크 2.7초 → 120초 에피소드 ~18콜, 예산 30 안.
+명령 이력과 실행 피드백을 프롬프트에 되먹인다 — in-context corrective
+steering. 예산 소진 시 마지막 명령으로 청크만 계속 만든다.
 """
 from __future__ import annotations
 
@@ -31,10 +33,11 @@ from common.vlm import VLM                                  # noqa: E402
 import rclpy                                                # noqa: E402
 
 SERVER = "http://127.0.0.1:8010"
-REQUERY_STEPS = 6         # 재지시 **최소 간격** [스텝] — 1초. 실제 주기는 VLM
-                          # 지연(이미지 2장 실측 3.5~4.1초)이 지배하는 연속
-                          # 재지시다: 직전 응답이 오는 즉시 다음을 묻는다.
-                          # 예산 30콜 × ~4초 = 120초 에피소드 전체를 덮는다.
+# 동기 사이클 (2026-08-19 사용자 지시): ① VLM 호출 — 그동안 로봇은 **정지**
+# ② 응답 명령으로 액션 청크 1개 생성(/act_chunk k=1) ③ 청크 실행 ④ 반복.
+# 사이클당 VLM 1콜(~4초) + 청크 16스텝(~2.7초) ≈ 6.7초 → 120초 에피소드에
+# ~18콜로 예산 30 안. 예산 소진 시 마지막 명령으로 청크만 계속 생성한다.
+CHUNK_STEPS = 16          # 사이클마다 실행할 청크 길이 (학습 청크 그대로)
 
 GOALS = {
     "task1": "Deliver the hammer to the worker across the yellow tape "
@@ -66,18 +69,14 @@ the conveyor outlet, worker zone at y < -0.40 (task1) . The bin is at [0.26, 0.5
 
 
 class Supervisor:
-    """비동기 재지시 — VLM 이 생각하는 몇 초 동안 정책은 현재 명령을 계속
-    따른다 (논문의 계층 구조와 동일: 저수준은 N 스텝마다만 재지휘된다).
-    동기로 부르면 6Hz 제어가 수 초씩 얼어 타임아웃만 까먹는다."""
+    """동기 지휘 — 사이클마다 VLM 응답을 **기다렸다가**(로봇 정지) 그 명령으로
+    청크를 만들어 실행한다. 지휘와 실행의 엄격한 교대다 (사용자 지시)."""
 
     def __init__(self, vlm: VLM, task: str) -> None:
         self.vlm = vlm
         self.task = task
         self.command = TASK_TEXT[task]      # 예산 소진·실패 시의 기본 명령
         self.history: list[str] = []
-        self.last_step = -10**9
-        self.last_grip = None
-        self._busy = False
 
     def scene_text(self, node) -> str:
         objs = {n: [round(v, 2) for v in p] for n, p in node.objects.items()
@@ -106,18 +105,11 @@ class Supervisor:
                 f"{'closed' if node.gripper > 0.5 else 'open'}\n"
                 f"Object world positions (x,y,z): {json.dumps(objs)}{hz}")
 
-    def requery(self, node, reason: str, wait: bool = False) -> None:
-        """wait=True 면 동기(에피소드 시작 시), 아니면 백그라운드 스레드."""
-        if self.vlm.used >= self.vlm.budget or self._busy:
+    def requery(self, node, reason: str) -> None:
+        """동기 호출 — 응답이 올 때까지 이 사이클은 여기서 멈춘다.
+        예산 소진 시 no-op: 마지막 명령으로 청크만 계속 생성된다."""
+        if self.vlm.used >= self.vlm.budget:
             return
-        self._busy = True
-        if wait:
-            self._requery_sync(node, reason)
-        else:
-            threading.Thread(target=self._requery_sync,
-                             args=(node, reason), daemon=True).start()
-
-    def _requery_sync(self, node, reason: str) -> None:
         img_f = node.images.get("front")
         img_w = node.images.get("wrist")
         imgs = [i for i in (img_f, img_w) if i]
@@ -139,25 +131,12 @@ class Supervisor:
             "prefer subtask commands for in-distribution moves; use atomic "
             "motions for small corrections.\n"
             'JSON: {"reasoning": "...", "command": "..."}')
-        try:
-            d = self.vlm.call_json(prompt, images=imgs, max_tokens=700)
-            if d and isinstance(d.get("command"), str) and d["command"].strip():
-                self.command = d["command"].strip()
-                self.history.append(f"[{time.strftime('%H:%M:%S')}] {self.command}")
-                print(f"[LC] 지시({reason}, {self.vlm.used}/{self.vlm.budget}): "
-                      f"{self.command}", flush=True)
-        finally:
-            self._busy = False
-
-    def maybe_requery(self, node, step: int) -> None:
-        grip = node.gripper > 0.5
-        if step - self.last_step >= REQUERY_STEPS:
-            self.last_step = step
-            self.requery(node, "periodic")
-        elif self.last_grip is not None and grip != self.last_grip:
-            self.last_step = step
-            self.requery(node, "gripper state changed")
-        self.last_grip = grip
+        d = self.vlm.call_json(prompt, images=imgs, max_tokens=700)
+        if d and isinstance(d.get("command"), str) and d["command"].strip():
+            self.command = d["command"].strip()
+            self.history.append(f"[{time.strftime('%H:%M:%S')}] {self.command}")
+            print(f"[LC] 지시({reason}, {self.vlm.used}/{self.vlm.budget}): "
+                  f"{self.command}", flush=True)
 
 
 def post(url, payload, timeout=20.0):
@@ -187,33 +166,32 @@ def main() -> int:
 
     vlm = VLM(budget=30, log_path=f"{args.out}/LC_{args.task}_vlm.jsonl")
     sup = Supervisor(vlm, args.task)
+    queue: list[list[float]] = []      # 이번 사이클의 남은 액션 (abs)
 
     def on_start(node, ep):
         post(f"{SERVER}/reset", {})
         vlm.reset_budget()
         sup.command = TASK_TEXT[args.task]
         sup.history.clear()
-        sup.last_step = -10**9
-        sup.last_grip = None
+        queue.clear()
         time.sleep(0.5)
-        sup.requery(node, "episode start", wait=True)
-        sup.last_step = 0             # 다음 주기 재지시는 REQUERY_STEPS 뒤
 
     def on_event(node, e):
-        et = e.get("type")
-        if et in ("arm_collision", "burst_touched"):
-            sup.requery(node, f"safety event: {et}")
-        if et == "arm_enter":       # 팔 진입 — 즉시 재평가 (선제 회피 기회)
-            sup.requery(node, "worker arm entered the workspace")
-        if et == "trio_spawn":
-            sup.requery(node, "new cans placed")
+        # 장면이 급변하면 남은 청크를 버려 다음 틱에 새 사이클(VLM 재지휘)로.
+        if e.get("type") in ("arm_collision", "burst_touched", "arm_enter",
+                             "trio_spawn"):
+            queue.clear()
 
     def act(node, step):
-        sup.maybe_requery(node, step)
-        imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
-        res = post(f"{SERVER}/act", {"state": node.eef + [node.gripper],
-                                     "images": imgs, "task": sup.command})
-        node.send(res["action"])
+        if not queue:
+            node.halt()                 # VLM 이 생각하는 동안 정지 (동기 사이클)
+            sup.requery(node, "cycle")
+            imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
+            res = post(f"{SERVER}/act_chunk",
+                       {"state": node.eef + [node.gripper], "images": imgs,
+                        "task": sup.command, "k": 1})
+            queue.extend(res["chunks"][0][:CHUNK_STEPS])
+        node.send(queue.pop(0))
 
     run_episodes(node, args.task, args.episodes, act,
                  on_episode_start=on_start, on_event=on_event,
