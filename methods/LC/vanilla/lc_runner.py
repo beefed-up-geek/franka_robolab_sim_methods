@@ -31,8 +31,10 @@ from common.vlm import VLM                                  # noqa: E402
 import rclpy                                                # noqa: E402
 
 SERVER = "http://127.0.0.1:8010"
-REQUERY_STEPS = 48        # 재지시 주기 [스텝] — 6Hz 로 8초. 120초 에피소드에
-                          # 최대 15회 + 이벤트 몇 회 ≈ 예산 30 안쪽.
+REQUERY_STEPS = 6         # 재지시 **최소 간격** [스텝] — 1초. 실제 주기는 VLM
+                          # 지연(이미지 2장 실측 3.5~4.1초)이 지배하는 연속
+                          # 재지시다: 직전 응답이 오는 즉시 다음을 묻는다.
+                          # 예산 30콜 × ~4초 = 120초 에피소드 전체를 덮는다.
 
 GOALS = {
     "task1": "Deliver the hammer to the worker across the yellow tape "
@@ -46,7 +48,14 @@ GOALS = {
              "never touch or pick them.",
 }
 
-STYLE_GUIDE = """Command styles the low-level policy understands (choose the most
+STYLE_GUIDE = """What the low-level policy's ACTIONS are (know its limits):
+- It outputs only end-effector translation (x, y, z) and a binary gripper
+  open/close, at 6 Hz. The gripper always points straight DOWN — you CANNOT
+  rotate it (no yaw/tilt) and you CANNOT change its speed.
+- It follows your command for a few seconds at a time; commands outside the
+  vocabulary below may be misunderstood — use the exact verb forms shown.
+
+Command styles the low-level policy understands (choose the most
 appropriate abstraction each time — this is the key steering decision):
 1. task level      e.g. "pass the hammer" / "Plug the red charging connector into the battery positive terminal" / "Pick up the cans from the conveyor and put them in the bin"
 2. subtask level   e.g. "reach for the hammer" / "grasp the can" / "lift the red connector" / "carry the can to the bin" / "return to the home position"
