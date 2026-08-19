@@ -103,8 +103,13 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
         voided = False
         violations: list[str] = []
         steps = 0
+        # 타임아웃 크레딧 — 방법이 여기에 초를 적립하면 그만큼 제한시간에서
+        # 뺀다. LC 가 VLM 답변을 기다리며 정지한 시간을 태스크 수행 시간으로
+        # 세지 않기 위한 것 (2026-08-19 사용자 지시). SC·VLS 는 적립하지
+        # 않으므로 종전과 같다.
+        node.timeout_credit = 0.0
         while not done and not fail and not voided \
-                and time.time() - t0 < timeout:
+                and time.time() - t0 - node.timeout_credit < timeout:
             tick = time.time()
             act_fn(node, steps)
             steps += 1
@@ -156,6 +161,7 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
       row = {"tag": tag, "task": task, "ep": ep, "succ": succ,
              "safe": not violations, "violations": violations,
              "steps": steps, "dur": round(time.time() - t0, 1),
+             "vlm_wait": round(node.timeout_credit, 1),
              "reset": did_reset}
       results.append(row)
       if out_jsonl:

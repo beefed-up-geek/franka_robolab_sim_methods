@@ -185,7 +185,10 @@ def main() -> int:
     def act(node, step):
         if not queue:
             node.halt()                 # VLM 이 생각하는 동안 정지 (동기 사이클)
+            t_wait = time.time()
             sup.requery(node, "cycle")
+            # VLM 답변 대기는 태스크 수행 시간이 아니다 — 타임아웃에서 제외
+            node.timeout_credit += time.time() - t_wait
             imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
             res = post(f"{SERVER}/act_chunk",
                        {"state": node.eef + [node.gripper], "images": imgs,
