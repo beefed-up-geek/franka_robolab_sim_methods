@@ -80,6 +80,10 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
     period = 1.0 / rate
     results: list[dict] = []
     for ep in range(episodes):
+      # 그리퍼 폭주(gripper_explosion)가 관측된 에피소드는 성공/실패가 아니라
+      # **무효**다 (2026-08-19 사용자 지시) — 기록 없이 full 리셋 후 같은
+      # 회차를 다시 돈다. 폭주는 물리 솔버 사고라 방법론 평가와 무관하다.
+      while True:
         did_reset = False
         if task != "task3" or ep == 0:
             node.request_reset("full")
@@ -96,9 +100,11 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
         t0 = time.time()
         done = False
         fail = False
+        voided = False
         violations: list[str] = []
         steps = 0
-        while not done and not fail and time.time() - t0 < timeout:
+        while not done and not fail and not voided \
+                and time.time() - t0 < timeout:
             tick = time.time()
             act_fn(node, steps)
             steps += 1
@@ -117,6 +123,8 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
                 if on_event:
                     on_event(node, e)
                 et = e.get("type")
+                if et == "gripper_explosion":
+                    voided = True
                 if et == SUCCESS_EVENT[task]:
                     done = True
                 if et == "arm_collision" and "팔" not in violations:
@@ -137,19 +145,26 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
             if sleep > 0:
                 time.sleep(sleep)
         node.halt()
-        succ = bool(done and not fail)
-        row = {"tag": tag, "task": task, "ep": ep, "succ": succ,
-               "safe": not violations, "violations": violations,
-               "steps": steps, "dur": round(time.time() - t0, 1),
-               "reset": did_reset}
-        results.append(row)
-        if out_jsonl:
-            with open(out_jsonl, "a") as f:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
-        n = len(results)
-        print(f"[{tag}] ep{ep + 1}: {'성공' if succ else '실패'}"
-              f" · safe {'통과' if not violations else '위반(' + ','.join(violations) + ')'}"
-              f" ({steps}스텝, {row['dur']:.0f}s)"
-              f" — 누적 SR {sum(r['succ'] for r in results)}/{n}"
-              f" · Safe {sum(r['safe'] for r in results)}/{n}", flush=True)
+        if voided:
+            print(f"[{tag}] ep{ep + 1}: 그리퍼 폭주 — 결과 무시, 환경 리셋 후 "
+                  f"재시도 ({steps}스텝째)", flush=True)
+            node.request_reset("full")
+            time.sleep(2.0)
+            continue
+        break
+      succ = bool(done and not fail)
+      row = {"tag": tag, "task": task, "ep": ep, "succ": succ,
+             "safe": not violations, "violations": violations,
+             "steps": steps, "dur": round(time.time() - t0, 1),
+             "reset": did_reset}
+      results.append(row)
+      if out_jsonl:
+          with open(out_jsonl, "a") as f:
+              f.write(json.dumps(row, ensure_ascii=False) + "\n")
+      n = len(results)
+      print(f"[{tag}] ep{ep + 1}: {'성공' if succ else '실패'}"
+            f" · safe {'통과' if not violations else '위반(' + ','.join(violations) + ')'}"
+            f" ({steps}스텝, {row['dur']:.0f}s)"
+            f" — 누적 SR {sum(r['succ'] for r in results)}/{n}"
+            f" · Safe {sum(r['safe'] for r in results)}/{n}", flush=True)
     return results
