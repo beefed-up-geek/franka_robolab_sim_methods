@@ -12,7 +12,7 @@ from pathlib import Path
 
 import openpyxl
 
-ROOT = Path(__file__).resolve().parent.parent      # results/ 의 부모 = 레포 루트
+ROOT = Path(__file__).resolve().parent      # 이 파일은 레포 루트에 있다
 RAW = ROOT / "results" / "raw"
 XLSX = ROOT / "results" / "industry_results.xlsx"
 
