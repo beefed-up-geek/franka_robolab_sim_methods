@@ -18,6 +18,7 @@ B=/isaac-sim/exts/isaacsim.ros2.bridge/jazzy
 PORT=8010
 
 declare -A MODEL_OF=(
+    [VLA_task1]=task1_abs    [VLA_task2]=task2_abs    [VLA_task3]=task3_abs_v10
     [LC_task1]=task1_lang    [LC_task2]=task2_lang    [LC_task3]=task3_lang_v10
     [SC_task1]=task1_abs     [SC_task2]=task2_abs     [SC_task3]=task3_abs_v10
     [VLS_task1]=task1_abs    [VLS_task2]=task2_abs    [VLS_task3]=task3_abs_v10
@@ -78,9 +79,10 @@ run_one() {
     echo "===== $M/$T — ${NEED}에피 (누적 ${HAVE}/${EP}) $(date +%H:%M) ====="
     sim_env "${ENV_OF[$T]}" || return 1
     serve "${MODEL_OF[${M}_${T}]}" || return 1
-    docker exec $C pkill -f "methods/.*/vanilla/.*_runner.py" 2>/dev/null
+    docker exec $C pkill -f "methods/.*/.*_runner.py" 2>/dev/null
     local RUNNER
     case "$M" in
+        VLA) RUNNER=VLA/vla_runner.py;;
         LC) RUNNER=LC/vanilla/lc_runner.py;;
         SC) RUNNER=SC/vanilla/sc_runner.py;;
         VLS) RUNNER=VLS/vanilla/vls_runner.py;;
@@ -94,7 +96,7 @@ run_one() {
         | grep -aE "^\[(LC|SC|VLS|vlm)" || true
 }
 
-for M in LC SC VLS; do
+for M in VLA LC SC VLS; do
     [ -n "$ONLY_M" ] && [ "$M" != "$ONLY_M" ] && continue
     for T in task1 task2 task3; do
         [ -n "$ONLY_T" ] && [ "$T" != "$ONLY_T" ] && continue

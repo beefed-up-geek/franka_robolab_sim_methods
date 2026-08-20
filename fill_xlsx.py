@@ -16,7 +16,9 @@ ROOT = Path(__file__).resolve().parent      # 이 파일은 레포 루트에 있
 RAW = ROOT / "results" / "raw"
 XLSX = ROOT / "results" / "industry_results.xlsx"
 
-ROW = {"LC": 3, "SC": 5, "VLS": 7}                 # 시트 행 (1-기준)
+# 시트 행 (1-기준). VLA(기본) 행이 3행에 삽입되면서 아래가 한 칸씩 밀렸다
+# — insert_vla_row.py 가 한 번 실행된 뒤의 배치다.
+ROW = {"VLA": 3, "LC": 4, "SC": 6, "VLS": 8}
 COL = {"task1": ("B", "C"), "task2": ("D", "E"), "task3": ("F", "G")}
 
 

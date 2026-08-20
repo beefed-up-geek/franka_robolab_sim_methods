@@ -44,7 +44,8 @@ import torch                                                 # noqa: E402
 SERVER = "http://127.0.0.1:8010"
 K = 6              # 후보 청크(입자) 수 — 서버 왕복 1회로 K 개를 받는다
 REFINE_STEPS = 5   # 기울기 정제 횟수
-REFINE_LR = 0.01   # [m] 스케일 경사 상승 보폭
+REFINE_LR = 0.01   # [m] 스케일 경사 상승 보폭 (적응 배율 λ 가 곱해진다)
+LAMBDA_MAX = 2.0   # 적응형 유도 강도 상한 (논문 eq.10 의 λ_max)
 REFINE_CLAMP = 0.04  # 정제로 움직일 수 있는 최대 변위 [m] — 정책 매니폴드 이탈 방지
 EXEC_STEPS = 8     # 청크 16 중 실행할 스텝 수 — 자주 다시 보고 다시 고른다
 TCP_DZ = -0.15     # 플랜지 → 손끝(TCP) 오프셋 [m]. 정책 액션은 플랜지 기준,
@@ -121,6 +122,11 @@ class Steering:
         self.task = task
         self.stages: list[dict] = []      # {name, reward(fn), done(fn)}
         self.idx = 0
+        # 적응형 유도 강도 (논문 eq.10) — 스테이지 첫 청크의 보상을 기준으로,
+        # 지금 보상이 그보다 나쁘면 강하게(λ↑), 좋아지면 약하게(λ↓) 민다.
+        # 보상 부호가 임의(대개 음수)라 비율 대신 |기준| 정규화 개선량을 쓴다.
+        self.r_base: float | None = None
+        self.r_last: float | None = None
 
     def keypoints(self, node) -> dict:
         kp = {n: [round(v, 3) for v in p] for n, p in node.objects.items()}
@@ -155,6 +161,8 @@ class Steering:
                 if stages:
                     self.stages = stages
                     self.idx = 0
+                    self.r_base = None
+                    self.r_last = None
                     print(f"[VLS] 계획 {len(stages)}스테이지: "
                           f"{[s['name'] for s in stages]} "
                           f"(VLM {self.vlm.used}/{self.vlm.budget})", flush=True)
@@ -177,6 +185,8 @@ class Steering:
             eef = [eef[0], eef[1], eef[2] + TCP_DZ]
             if st["done"](self.keypoints(node), eef, self.grasped(node)):
                 self.idx += 1
+                self.r_base = None          # 새 스테이지 — 유도 강도 기준 리셋
+                self.r_last = None
                 nxt = (self.stages[self.idx]["name"]
                        if self.idx < len(self.stages) else "완료")
                 print(f"[VLS] 스테이지 전환 → {nxt}", flush=True)
@@ -189,6 +199,13 @@ class Steering:
             return None
         st = self.stages[self.idx]
         kp = self.keypoints(node)
+        # 적응형 유도 강도 λ (논문 eq.10 의 부호 강건판) — 직전 청크 보상이
+        # 스테이지 기준(첫 청크)보다 나쁘면 λ→2 로 세게, 좋아지면 λ→0.5 로
+        # 약하게. 기준이 없으면(스테이지 첫 청크) 1.0.
+        lam = 1.0
+        if self.r_base is not None and self.r_last is not None:
+            imp = (self.r_last - self.r_base) / (abs(self.r_base) + 1e-6)
+            lam = max(0.25, LAMBDA_MAX / (1.0 + math.exp(imp)))
         best, best_r = None, None
         tcp = torch.tensor([0.0, 0.0, TCP_DZ])
         for ch in chunks:
@@ -204,7 +221,7 @@ class Steering:
                         raise ValueError("reward 는 스칼라 텐서여야 함")
                     (g,) = torch.autograd.grad(r, xyz)
                     with torch.no_grad():
-                        xyz += REFINE_LR * g / (g.norm() + 1e-8)
+                        xyz += lam * REFINE_LR * g / (g.norm() + 1e-8)
                         xyz.clamp_(base - REFINE_CLAMP, base + REFINE_CLAMP)
                 with torch.no_grad():
                     tr = torch.cat([xyz, t[:, 3:4]], dim=1)
@@ -216,6 +233,10 @@ class Steering:
                 cand, rv = ch, float("-inf")
             if best_r is None or rv > best_r:
                 best, best_r = cand, rv
+        if best_r is not None and best_r != float("-inf"):
+            if self.r_base is None:
+                self.r_base = best_r        # 스테이지 첫 청크 = 기준 보상
+            self.r_last = best_r
         return best
 
 
