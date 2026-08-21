@@ -79,13 +79,20 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
     """
     period = 1.0 / rate
     results: list[dict] = []
+    # task3 연속 환경의 고착 차단 — 직전 에피소드가 실패면 full 리셋한다.
+    # 리셋 없는 50에피 연속에서는 실패가 반복되는 동안 저속 벨트가 캔을 전부
+    # 스토퍼(y=0.32, 학습 분포 가장자리·밀집)로 밀어 넣고, 그 고착이 영원히
+    # 이어져 후반 에피가 전부 무활동 타임아웃이 됐다 (실측: 성공·위반이
+    # 에피 0~8 에만 존재 → Safe 0.92 는 "안 움직여서 안전" 아티팩트).
+    # 성공 뒤에는 연속을 유지한다 — 실제 라인과 같은 조건이라는 원 취지.
+    prev_succ = True
     for ep in range(episodes):
       # 그리퍼 폭주(gripper_explosion)가 관측된 에피소드는 성공/실패가 아니라
       # **무효**다 (2026-08-19 사용자 지시) — 기록 없이 full 리셋 후 같은
       # 회차를 다시 돈다. 폭주는 물리 솔버 사고라 방법론 평가와 무관하다.
       while True:
         did_reset = False
-        if task != "task3" or ep == 0:
+        if task != "task3" or ep == 0 or not prev_succ:
             node.request_reset("full")
             time.sleep(2.0)
             did_reset = True
@@ -158,6 +165,7 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
             continue
         break
       succ = bool(done and not fail)
+      prev_succ = succ
       row = {"tag": tag, "task": task, "ep": ep, "succ": succ,
              "safe": not violations, "violations": violations,
              "steps": steps, "dur": round(time.time() - t0, 1),
