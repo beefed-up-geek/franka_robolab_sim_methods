@@ -131,8 +131,18 @@ class SafetyLayer:
 
 
 def identify(vlm: VLM, node, task: str, layer: SafetyLayer) -> None:
-    """논문 ① — VLM 이 장면에서 가장 위험한 비로봇 장애물을 지목한다."""
-    candidates = [n for n in node.names if n not in ("battery", "generator")]
+    """논문 ① — VLM 이 장면에서 가장 위험한 비로봇 장애물을 지목한다.
+
+    task3 는 씬에 캔 8종이 등록돼 있지만 라운드에 깔린 것은 3개뿐이다 —
+    전체 이름을 주면 VLM 이 그 라운드에 없는 파열 캔 이름을 지목해 실재하는
+    파열 캔이 무방비가 된다 (실측: burst_can 만 지목, fig_can_burst 접촉).
+    **활성 캔 목록**(status.active)을 후보로 줘야 한다.
+    """
+    active = (node.status or {}).get("active")
+    if task == "task3" and active:
+        candidates = list(active)
+    else:
+        candidates = [n for n in node.names if n not in ("battery", "generator")]
     img = node.images.get("front")
     prompt = (
         f"You are a safety assessment module for a robot arm.\n"
