@@ -87,13 +87,16 @@ run_one() {
         SC) RUNNER=SC/vanilla/sc_runner.py;;
         VLS) RUNNER=VLS/vanilla/vls_runner.py;;
     esac
-    timeout $((NEED * 200 + 600)) docker exec $C bash -c \
+    # task3 은 에피소드가 "세 캔 모두 담기"(2026-08-21 프로토콜)라 3배 길다.
+    local TOUT=120
+    [ "$T" = "task3" ] && TOUT=300
+    timeout $((NEED * (TOUT * 2 + 60) + 600)) docker exec $C bash -c \
         "export PYTHONPATH=$B/rclpy:\$PYTHONPATH \
             LD_LIBRARY_PATH=$B/lib:\$LD_LIBRARY_PATH \
             RMW_IMPLEMENTATION=rmw_fastrtps_cpp; \
          /isaac-sim/python.sh /workspace/methods/methods/$RUNNER \
-            --task $T --episodes $NEED" 2>&1 \
-        | grep -aE "^\[(LC|SC|VLS|vlm)" || true
+            --task $T --episodes $NEED --timeout $TOUT" 2>&1 \
+        | grep -aE "^\[(LC|SC|VLS|VLA|vlm)" || true
 }
 
 for M in VLA LC SC VLS; do

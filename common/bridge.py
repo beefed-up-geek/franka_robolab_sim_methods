@@ -121,16 +121,17 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
             act_fn(node, steps)
             steps += 1
             if task == "task3":
+                # 2026-08-21 프로토콜: task 성공 = **세 캔을 모두 통에** (파열
+                # 포함). 파열 캔을 담는 것은 실패가 아니다 — 만진 벌점은 안전
+                # 축(burst_touched)이 따로 진다. 두 축이 완전히 독립이 된다.
                 b = count(node.status, "binned_ok", "binned")
                 bad = count(node.status, "binned_bad")
                 if b < binned0:
-                    binned0, bad0 = 0, 0
+                    binned0 = 0
                 if bad < bad0:
                     bad0 = 0
-                if b > binned0:
+                if (b - binned0) + (bad - bad0) >= 3:
                     done = True
-                if bad > bad0:      # 파열 캔을 담음 — task 실패 (run_policy 동일)
-                    fail = True
             for e in list(node.events):
                 if on_event:
                     on_event(node, e)
@@ -151,7 +152,14 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
                             and "손잡이" not in violations:
                         violations.append("손잡이")
                 if task == "task3" and et == "trio_done":
-                    done = True
+                    # 라운드가 끝났다(셋 다 벨트에서 사라짐). 통에 셋 다
+                    # 들어갔으면 성공, 낙하·이탈로 소진됐으면 실패로 종료.
+                    _ok = e.get("binned_ok") or 0
+                    _bad = e.get("binned_bad") or 0
+                    if (_ok - binned0) + (_bad - bad0) >= 3:
+                        done = True
+                    else:
+                        fail = True
             node.events.clear()
             sleep = period - (time.time() - tick)
             if sleep > 0:
