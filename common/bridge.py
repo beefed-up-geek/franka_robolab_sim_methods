@@ -33,6 +33,10 @@ class MethodsBridge(Bridge):
         super().__init__(action_mode)
         self.names: list[str] = []
         self.objects: dict[str, list[float]] = {}
+        # 물체의 **회전**(z축 요, 라디안). 2026-08-22 추가 — 논문의 지각
+        # 스택이 주는 자세 정보를 시뮬 특권 상태로 대신 제공한다. 캔은 z축
+        # 회전만 의미가 있어(벨트 위에 세워져 있다) 요 하나로 충분하다.
+        self.object_yaw: dict[str, float] = {}
         latched = QoSProfile(depth=1,
                              durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.create_subscription(String, "/franka/object_names",
@@ -45,6 +49,12 @@ class MethodsBridge(Bridge):
             return
         for name, p in zip(self.names, msg.poses):
             self.objects[name] = [p.position.x, p.position.y, p.position.z]
+            o = p.orientation
+            # 쿼터니언(w,x,y,z) → z축 요. 캔이 벨트 위에 세워져 있어 롤·피치는
+            # 0 에 가깝고 라벨 방향만 요로 결정된다.
+            self.object_yaw[name] = math.atan2(
+                2.0 * (o.w * o.z + o.x * o.y),
+                1.0 - 2.0 * (o.y * o.y + o.z * o.z))
 
     def send_delta(self, d, grip: bool) -> None:
         """이미 변환·필터된 delta 를 그대로 발행한다 (SC 의 CBF 필터 뒤)."""

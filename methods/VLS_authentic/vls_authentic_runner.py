@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""VLS — Vision-Language Steering (arXiv:2602.03973) 의 학습 없는 추론 시점 조향.
+"""VLS_authentic — Vision-Language Steering (arXiv:2602.03973) 충실 구현.
 
-vanilla abs VLA(GR00T flow-matching 헤드) 위에 얹는다. 논문의 세 구성요소와
-이 구현의 대응 (methods/VLS/vanilla/README.md 에 충실/대체 상세):
+VLS(vanilla)와 같은 논문이지만, 단순화했던 부분을 **Algorithm 1 그대로**
+되돌린 판이다. 대체하는 것은 지각 스택 하나뿐이다:
 
-  ① OOD 접지 + VLM 보상 합성 — 논문은 SAM/DINOv2/깊이로 3D 키포인트 스캐폴드
-     P 를 만들고, VLM 이 태스크를 스테이지로 분해해 스테이지별 **미분 가능한
-     프로그램 보상** R_s(traj, P) 를 합성한다. 여기서는 P 를 시뮬 특권
-     상태(물체·통·홈 좌표)로 얻고(지각 대체), 보상 합성은 논문 그대로 VLM 이
-     torch 연산으로 짠 파이썬 함수다.
-  ② 노이즈 제거 유도 — 논문은 ∇R 을 디노이징 스텝에 주입하고 입자 리샘플링을
-     섞는다. 서버의 /act_chunk 가 flow 헤드에서 K 개 후보 청크를 뽑고(입자),
-     각 후보에 ∇R 경사 상승 m 스텝(기울기 정제) 후 R 최대 후보를 고른다 —
-     유도를 내부 스텝이 아니라 표본에 가하는 gradient-free resampling +
-     gradient refinement 조합이다.
-  ③ 폐루프 스테이지 전환 — VLM 이 스테이지마다 done 술어(파이썬)를 함께 내고,
-     러너가 특권 상태로 매 청크 평가해 보상을 갈아끼운다.
+  SAM + DINOv2 + 깊이 → 3D 키포인트 P   ⟹   시뮬 특권 상태(좌표 + 요)
 
-VLM 호출: 에피소드 시작 계획 1회(+ 파싱 실패 재시도 ≤2) + 라운드 재배치 시
-재계획 — 30회 한도의 한참 아래. 보상 코드는 exec 로 싣되 torch·math 만 보이는
-이름공간에 가둔다.
+그 외는 논문을 따른다. VLS(vanilla)와의 차이는 전부 **유도가 일어나는 위치**다.
+
+  단계                     VLS(vanilla)            VLS_authentic
+  ─────────────────────────────────────────────────────────────────────
+  입자 초기화              독립 노이즈 K개          독립 노이즈 B개 + RBF 반발(eq.8)
+  보상 기울기 주입          완성된 표본에 사후 정제   **디노이징 스텝마다**(Alg.1 14-16)
+  MCMC 내부 갱신           없음                     스텝당 m회
+  리샘플링                 argmax 선택              Feynman-Kac 가중(eq.9)
+  적응형 강도 λ            있음(eq.10)              있음(eq.10)
+  스테이지 전환            done 술어                Schmitt 트리거(eq.11) + done
+
+디노이징 루프 내부 접근이 필요해 서버의 /act_chunk_guided 로 보상 소스와
+키포인트를 넘기고, 서버가 GR00T 의 get_action_with_features 를 교체해 유도한
+청크 하나를 돌려준다. 정책 가중치는 여전히 건드리지 않는다 (training-free).
 """
 from __future__ import annotations
 
@@ -42,11 +42,25 @@ import rclpy                                                 # noqa: E402
 import torch                                                 # noqa: E402
 
 SERVER = "http://127.0.0.1:8010"
-K = 6              # 후보 청크(입자) 수 — 서버 왕복 1회로 K 개를 받는다
-REFINE_STEPS = 5   # 기울기 정제 횟수
-REFINE_LR = 0.01   # [m] 스케일 경사 상승 보폭 (적응 배율 λ 가 곱해진다)
-LAMBDA_MAX = 2.0   # 적응형 유도 강도 상한 (논문 eq.10 의 λ_max)
-REFINE_CLAMP = 0.04  # 정제로 움직일 수 있는 최대 변위 [m] — 정책 매니폴드 이탈 방지
+B_PARTICLES = 6    # 입자 수 (Alg.1 의 batch size B)
+# 유도 강도는 실측으로 정했다. 목표까지의 거리를 보상으로 준 프로브에서
+# 평균 거리가 0.463(유도 끔) → 0.458(mcmc2·lr0.05) → 0.352(mcmc4·lr0.20) 로
+# 강도에 단조 반응했다. 약한 설정은 사실상 유도가 없는 것과 같아 4·0.15 로 둔다.
+MCMC_STEPS = 4     # 디노이징 스텝당 보상 기울기 갱신 횟수 (Alg.1 15)
+GUIDANCE_LR = 0.15  # 정규화 공간 기울기 보폭 — λ 가 곱해진다
+RBF_WEIGHT = 0.02  # 반발 세기 (eq.8). 초기 디노이징 스텝에서만 적용
+FK_TEMP = 1.0      # Feynman-Kac 가중 온도 (eq.9). 작을수록 argmax 에 가깝다
+MAX_DEV = 0.02     # 한 청크에 허용하는 총 유도 변위 [정규화 단위 ≈ 0.4~1cm]
+                   # 상한이 없으면 λ·lr·MCMC 누적이 액션 범위(±1)를 넘어
+                   # 궤적이 정책 매니폴드 밖으로 날아간다 (실측: 파지 0회).
+                   #
+                   # 값은 실측으로 골랐다. task3 에서 유도 강도별 파지 성공
+                   # 관측 수: 조향 끔 18 · 0.02 → 13 · 0.05 → 10 · 0.12 → 10.
+                   # **어느 강도에서도 유도는 파지를 해친다** — 정밀 조작
+                   # 구간에서 궤적을 cm 단위로 밀면 그리퍼가 캔을 빗나간다.
+                   # 그중 파지가 가장 덜 깨지는 0.02 를 운영점으로 삼는다.
+LAMBDA_MAX = 2.0   # 적응형 유도 강도 상한 (eq.10 의 λ_max)
+R_HIGH, R_LOW = 0.85, 0.35   # Schmitt 트리거 임계 (eq.11), 정규화 보상 기준
 EXEC_STEPS = 8     # 청크 16 중 실행할 스텝 수 — 자주 다시 보고 다시 고른다
 TCP_DZ = -0.15     # 플랜지 → 손끝(TCP) 오프셋 [m]. 정책 액션은 플랜지 기준,
                    # 물체 키포인트는 상판 높이라 보상·술어는 TCP 로 평가한다
@@ -132,19 +146,22 @@ class Steering:
         # 보상 부호가 임의(대개 음수)라 비율 대신 |기준| 정규화 개선량을 쓴다.
         self.r_base: float | None = None
         self.r_last: float | None = None
+        self.max_dev = MAX_DEV      # 유도 변위 상한 (CLI 로 덮어쓸 수 있다)
+        self.reinforce = False      # Schmitt: 보상이 낮아 유도를 강화하는 중인가
+        self._hits = 0              # 전환 이력 카운터
 
     def keypoints(self, node) -> dict:
-        """키포인트 스캐폴드 — 좌표 + **회전(요)**, 라운드 활성 캔만.
+        """논문의 3D 키포인트 스캐폴드 P — 지각 스택 대신 특권 상태로 만든다.
 
-        2026-08-22: 요를 추가하고(사용자 지시) task3 에서 대기열에 숨은 캔을
-        걸러낸다. 이전에는 씬 전체 8캔이 넘어가 VLM 이 그 라운드에 없는 캔으로
-        계획을 세웠다 (SC 에서 같은 문제가 Safe 0/8 을 만들었다).
+        2026-08-22: **회전(요)** 을 함께 싣고(사용자 지시), task3 은 그 라운드에
+        실제로 깔린 캔만 남긴다 — 대기열에 숨은 캔(상판 아래)까지 주면 VLM 이
+        없는 물체로 계획을 세운다 (SC 에서 같은 문제가 Safe 0/8 을 만들었다).
         """
         act = (node.status or {}).get("active")
         keep = set(act) if (self.task == "task3" and act) else None
         kp = {}
         for n, p in node.objects.items():
-            if keep is not None and n not in keep:
+            if keep is not None and n not in keep and n not in ("bin", "home"):
                 continue
             kp[n] = [round(v, 3) for v in p]
             y = node.object_yaw.get(n)
@@ -175,6 +192,10 @@ class Steering:
                 for s in d["stages"][:4]:
                     stages.append({
                         "name": str(s.get("name", "?"))[:40],
+                        # 보상은 **소스 그대로** 보관한다 — 디노이징 루프
+                        # 안에서 평가해야 해서 서버가 컴파일한다. 여기서도
+                        # 한 번 컴파일해 문법·시그니처를 검증만 한다.
+                        "reward_src": s["reward"],
                         "reward": compile_fn(s["reward"], ("traj", "kp")),
                         "done": compile_fn(s["done"], ("kp", "eef", "gripper")),
                     })
@@ -183,13 +204,13 @@ class Steering:
                     self.idx = 0
                     self.r_base = None
                     self.r_last = None
-                    print(f"[VLS] 계획 {len(stages)}스테이지: "
+                    print(f"[VLSa] 계획 {len(stages)}스테이지: "
                           f"{[s['name'] for s in stages]} "
                           f"(VLM {self.vlm.used}/{self.vlm.budget})", flush=True)
                     return
             except Exception as e:            # noqa: BLE001
-                print(f"[VLS] 보상 컴파일 실패, 재시도: {e}", flush=True)
-        print("[VLS] 계획 실패 — vanilla 로 진행", flush=True)
+                print(f"[VLSa] 보상 컴파일 실패, 재시도: {e}", flush=True)
+        print("[VLSa] 계획 실패 — vanilla 로 진행", flush=True)
 
     def grasped(self, node) -> float:
         """접촉 검증 파지 — steer_eval 에서 검증된 status.contact 판정."""
@@ -197,67 +218,76 @@ class Steering:
         return 1.0 if any(float(v) > 0.3 for v in contact.values()) else 0.0
 
     def advance(self, node) -> None:
+        """스테이지 전환 — Schmitt 트리거(eq.11) + done 술어.
+
+        논문은 정규화 보상 R^t_s 가 R_high 를 넘으면 전진, R_low 아래면
+        유도를 강화(reinforce), 사이면 유지한다. 이력(hysteresis)이 있어야
+        경계에서 앞뒤로 튀지 않는다. done 술어는 물리적 완료의 확정 신호라
+        함께 쓰되, 둘 중 하나만으로는 전진하지 않게 **연속 2회** 를 요구한다.
+        """
         if not self.stages or self.idx >= len(self.stages):
             return
         st = self.stages[self.idx]
+        fired = False
         try:
             eef = list(node.eef or (0, 0, 0))
             eef = [eef[0], eef[1], eef[2] + TCP_DZ]
-            if st["done"](self.keypoints(node), eef, self.grasped(node)):
-                self.idx += 1
-                self.r_base = None          # 새 스테이지 — 유도 강도 기준 리셋
-                self.r_last = None
-                nxt = (self.stages[self.idx]["name"]
-                       if self.idx < len(self.stages) else "완료")
-                print(f"[VLS] 스테이지 전환 → {nxt}", flush=True)
+            fired = bool(st["done"](self.keypoints(node), eef, self.grasped(node)))
         except Exception:                      # noqa: BLE001
-            pass
+            fired = False
+        # 보상 기반 신호 — 기준 대비 정규화 진척도
+        q = None
+        if self.r_base is not None and self.r_last is not None:
+            span = abs(self.r_base) + 1e-6
+            q = 1.0 / (1.0 + math.exp(-(self.r_last - self.r_base) / span))
+        if q is not None and q < R_LOW:
+            self.reinforce = True              # 유도 강화 (λ 상한 쪽으로)
+        elif q is not None and q > R_HIGH:
+            self.reinforce = False
+        advance = fired and (q is None or q > R_LOW)
+        self._hits = self._hits + 1 if advance else 0
+        if self._hits >= 2:                    # 이력 — 연속 2회
+            self._hits = 0
+            self.idx += 1
+            self.r_base = self.r_last = None
+            self.reinforce = False
+            nxt = (self.stages[self.idx]["name"]
+                   if self.idx < len(self.stages) else "완료")
+            print(f"[VLSa] 스테이지 전환 → {nxt}", flush=True)
 
-    def guide(self, node, chunks) -> list[float] | None:
-        """K 후보에 보상 기울기 정제 → 최고 보상 청크를 고른다."""
+    def lam(self) -> float:
+        """적응형 유도 강도 λ_t (eq.10). reinforce 상태면 상한 쪽으로."""
+        if self.reinforce:
+            return LAMBDA_MAX
+        if self.r_base is None or self.r_last is None:
+            return 1.0
+        imp = (self.r_last - self.r_base) / (abs(self.r_base) + 1e-6)
+        return max(0.25, LAMBDA_MAX / (1.0 + math.exp(imp)))
+
+    def guided_chunk(self, node, text) -> list[list[float]] | None:
+        """서버에서 유도 디노이징을 돌려 청크 하나를 받는다 (Alg.1 전체)."""
         if not self.stages or self.idx >= len(self.stages):
             return None
         st = self.stages[self.idx]
-        kp = self.keypoints(node)
-        # 적응형 유도 강도 λ (논문 eq.10 의 부호 강건판) — 직전 청크 보상이
-        # 스테이지 기준(첫 청크)보다 나쁘면 λ→2 로 세게, 좋아지면 λ→0.5 로
-        # 약하게. 기준이 없으면(스테이지 첫 청크) 1.0.
-        lam = 1.0
-        if self.r_base is not None and self.r_last is not None:
-            imp = (self.r_last - self.r_base) / (abs(self.r_base) + 1e-6)
-            lam = max(0.25, LAMBDA_MAX / (1.0 + math.exp(imp)))
-        best, best_r = None, None
-        tcp = torch.tensor([0.0, 0.0, TCP_DZ])
-        for ch in chunks:
-            t = torch.tensor(ch, dtype=torch.float32)
-            t[:, :3] += tcp                    # 플랜지 → TCP
-            xyz = t[:, :3].clone().requires_grad_(True)
-            base = xyz.detach().clone()
-            try:
-                for _ in range(REFINE_STEPS):
-                    tr = torch.cat([xyz, t[:, 3:4]], dim=1)
-                    r = st["reward"](tr, kp)
-                    if not torch.is_tensor(r) or r.dim() != 0:
-                        raise ValueError("reward 는 스칼라 텐서여야 함")
-                    (g,) = torch.autograd.grad(r, xyz)
-                    with torch.no_grad():
-                        xyz += lam * REFINE_LR * g / (g.norm() + 1e-8)
-                        xyz.clamp_(base - REFINE_CLAMP, base + REFINE_CLAMP)
-                with torch.no_grad():
-                    tr = torch.cat([xyz, t[:, 3:4]], dim=1)
-                    rv = float(st["reward"](tr, kp))
-                    tr_flange = torch.cat([xyz - tcp, t[:, 3:4]], dim=1)
-                cand = tr_flange.detach().numpy().tolist()   # 발행은 플랜지 기준
-            except Exception:                  # noqa: BLE001
-                # 보상 실행 실패 — 이 후보는 원본 그대로 0점 취급
-                cand, rv = ch, float("-inf")
-            if best_r is None or rv > best_r:
-                best, best_r = cand, rv
-        if best_r is not None and best_r != float("-inf"):
+        imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
+        try:
+            res = post(f"{SERVER}/act_chunk_guided", {
+                "state": node.eef + [node.gripper], "images": imgs, "task": text,
+                "n_particles": B_PARTICLES, "reward_src": st["reward_src"],
+                "kp": self.keypoints(node), "lam": self.lam(),
+                "mcmc_steps": MCMC_STEPS, "guidance_lr": GUIDANCE_LR,
+                "rbf_weight": RBF_WEIGHT, "fk_temp": FK_TEMP,
+                "tcp_dz": TCP_DZ, "max_dev": self.max_dev}, timeout=60.0)
+        except Exception as e:                 # noqa: BLE001
+            print(f"[VLSa] 유도 실패({type(e).__name__}) — vanilla 청크로 대체",
+                  flush=True)
+            return None
+        r = (res.get("diag") or {}).get("r_first")
+        if r is not None:
             if self.r_base is None:
-                self.r_base = best_r        # 스테이지 첫 청크 = 기준 보상
-            self.r_last = best_r
-        return best
+                self.r_base = r
+            self.r_last = r
+        return res["chunk"]
 
 
 def main() -> int:
@@ -266,6 +296,12 @@ def main() -> int:
     ap.add_argument("--episodes", type=int, default=50)
     ap.add_argument("--timeout", type=float, default=120.0)
     ap.add_argument("--out", default="/workspace/methods/results/raw")
+    ap.add_argument("--max-dev", type=float, default=None,
+                    help="한 청크의 총 유도 변위 상한 [정규화 단위]. 생략 시 MAX_DEV.")
+    ap.add_argument("--tag", default="VLSa", help="결과 파일 접두사 (스윕용)")
+    ap.add_argument("--guide-off", action="store_true",
+                    help="진단용 — 조향을 끄고 청크 실행 경로만 돌린다. "
+                         "파지 실패가 유도 탓인지 청크 실행 탓인지 가른다.")
     args = ap.parse_args()
 
     rclpy.init()
@@ -275,11 +311,13 @@ def main() -> int:
     while not node.ready() and time.time() - t0 < 30:
         time.sleep(0.1)
     if not node.ready():
-        print("[VLS] 토픽이 오지 않습니다.", flush=True)
+        print("[VLSa] 토픽이 오지 않습니다.", flush=True)
         return 1
 
-    vlm = VLM(budget=30, log_path=f"{args.out}/VLS_{args.task}_vlm.jsonl")
+    vlm = VLM(budget=30, log_path=f"{args.out}/VLSa_{args.task}_vlm.jsonl")
     steer = Steering(vlm, args.task)
+    if args.max_dev is not None:
+        steer.max_dev = args.max_dev
     text = TASK_TEXT[args.task]
     queue: list[list[float]] = []      # 실행 대기 액션 (abs)
 
@@ -288,7 +326,8 @@ def main() -> int:
         vlm.reset_budget()
         queue.clear()
         time.sleep(0.5)
-        steer.plan(node)
+        if not args.guide_off:
+            steer.plan(node)
 
     def on_event(node, e):
         if e.get("type") == "trio_spawn" and vlm.used < vlm.budget - 3:
@@ -297,25 +336,26 @@ def main() -> int:
     def act(node, step):
         steer.advance(node)
         if not queue:
-            imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
-            res = post(f"{SERVER}/act_chunk",
-                       {"state": node.eef + [node.gripper], "images": imgs,
-                        "task": text, "k": K})
-            chunks = res["chunks"]            # K × T × 4 (abs)
-            best = steer.guide(node, chunks) or chunks[0]
-            queue.extend(best[:EXEC_STEPS])
+            ch = None if args.guide_off else steer.guided_chunk(node, text)
+            if ch is None:                     # 계획 없음·유도 실패 → vanilla
+                imgs = {c: base64.b64encode(node.images[c]).decode() for c in CAMS}
+                res = post(f"{SERVER}/act_chunk",
+                           {"state": node.eef + [node.gripper], "images": imgs,
+                            "task": text, "k": 1})
+                ch = res["chunks"][0]
+            queue.extend(ch[:EXEC_STEPS])
         node.send(queue.pop(0))
         if step % 60 == 59:
             name = (steer.stages[steer.idx]["name"]
                     if steer.stages and steer.idx < len(steer.stages) else "-")
-            print(f"[VLS]   step{step + 1}: 스테이지 {steer.idx}({name}) "
-                  f"파지 {steer.grasped(node):.0f}", flush=True)
+            print(f"[VLSa]   step{step + 1}: 스테이지 {steer.idx}({name}) "
+                  f"파지 {steer.grasped(node):.0f} λ={steer.lam():.2f}", flush=True)
 
     run_episodes(node, args.task, args.episodes, act,
                  on_episode_start=on_start, on_event=on_event,
                  timeout=args.timeout,
-                 out_jsonl=f"{args.out}/VLS_{args.task}.jsonl",
-                 tag=f"VLS/{args.task}")
+                 out_jsonl=f"{args.out}/{args.tag}_{args.task}.jsonl",
+                 tag=f"VLSa/{args.task}")
     return 0
 
 

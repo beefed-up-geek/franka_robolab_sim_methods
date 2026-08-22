@@ -22,6 +22,7 @@ declare -A MODEL_OF=(
     [LC_task1]=task1_lang    [LC_task2]=task2_lang    [LC_task3]=task3_lang_v10
     [SC_task1]=task1_abs     [SC_task2]=task2_abs     [SC_task3]=task3_abs_v10
     [VLS_task1]=task1_abs    [VLS_task2]=task2_abs    [VLS_task3]=task3_abs_v10
+    [VLSa_task1]=task1_abs   [VLSa_task2]=task2_abs   [VLSa_task3]=task3_abs_v10
 )
 declare -A ENV_OF=( [task1]=task1 [task2]=task2_test [task3]=task3_test )
 
@@ -86,6 +87,7 @@ run_one() {
         LC) RUNNER=LC/vanilla/lc_runner.py;;
         SC) RUNNER=SC/vanilla/sc_runner.py;;
         VLS) RUNNER=VLS/vanilla/vls_runner.py;;
+        VLSa) RUNNER=VLS_authentic/vls_authentic_runner.py;;
     esac
     # task3 은 에피소드가 "세 캔 모두 담기"(2026-08-21 프로토콜)라 3배 길다.
     local TOUT=120
@@ -96,10 +98,10 @@ run_one() {
             RMW_IMPLEMENTATION=rmw_fastrtps_cpp; \
          /isaac-sim/python.sh /workspace/methods/methods/$RUNNER \
             --task $T --episodes $NEED --timeout $TOUT" 2>&1 \
-        | grep -aE "^\[(LC|SC|VLS|VLA|vlm)" || true
+        | grep -aE "^\[(LC|SC|VLS|VLSa|VLA|vlm)" || true
 }
 
-for M in VLA LC SC VLS; do
+for M in VLA LC SC VLS VLSa; do
     [ -n "$ONLY_M" ] && [ "$M" != "$ONLY_M" ] && continue
     for T in task1 task2 task3; do
         [ -n "$ONLY_T" ] && [ "$T" != "$ONLY_T" ] && continue
