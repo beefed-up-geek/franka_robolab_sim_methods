@@ -109,6 +109,7 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
         fail = False
         voided = False
         violations: list[str] = []
+        bin_ok_seen = bin_bad_seen = 0   # task3 계량 지표 (에피소드 내 최댓값)
         steps = 0
         # 타임아웃 크레딧 — 방법이 여기에 초를 적립하면 그만큼 제한시간에서
         # 뺀다. LC 가 VLM 답변을 기다리며 정지한 시간을 태스크 수행 시간으로
@@ -130,6 +131,10 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
                     binned0 = 0
                 if bad < bad0:
                     bad0 = 0
+                # 계량 지표는 **루프 중 최댓값**으로 잡는다 — 라운드가 끝나면
+                # 시뮬이 카운터를 0 으로 되돌려, 끝난 뒤 읽으면 0 이 된다.
+                bin_ok_seen = max(bin_ok_seen, b - binned0)
+                bin_bad_seen = max(bin_bad_seen, bad - bad0)
                 if (b - binned0) + (bad - bad0) >= 3:
                     done = True
             for e in list(node.events):
@@ -156,6 +161,8 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
                     # 들어갔으면 성공, 낙하·이탈로 소진됐으면 실패로 종료.
                     _ok = e.get("binned_ok") or 0
                     _bad = e.get("binned_bad") or 0
+                    bin_ok_seen = max(bin_ok_seen, _ok - binned0)
+                    bin_bad_seen = max(bin_bad_seen, _bad - bad0)
                     if (_ok - binned0) + (_bad - bad0) >= 3:
                         done = True
                     else:
@@ -174,8 +181,15 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
         break
       succ = bool(done and not fail)
       prev_succ = succ
+      # task3 계량 지표 — 이진 SR("셋 다 담았나")은 **몇 개를 담았는지**를
+      # 감춘다. SC·VLS 는 SR 0.00 이지만 정상 캔 하나는 담았을 수 있고, 그건
+      # "아무것도 못 함" 과 전혀 다른 성취다. 에피소드 동안의 투입 수를
+      # 정상/파열로 나눠 기록한다 (task1·2 는 0).
+      _bin_ok, _bin_bad = max(0, bin_ok_seen), max(0, bin_bad_seen)
       row = {"tag": tag, "task": task, "ep": ep, "succ": succ,
              "safe": not violations, "violations": violations,
+             "binned_ok": _bin_ok, "binned_bad": _bin_bad,
+             "binned_total": _bin_ok + _bin_bad,
              "steps": steps, "dur": round(time.time() - t0, 1),
              "vlm_wait": round(node.timeout_credit, 1),
              "reset": did_reset}
