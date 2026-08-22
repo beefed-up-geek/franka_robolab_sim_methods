@@ -1,0 +1,12 @@
+{"tag": "SC/task3", "task": "task3", "ep": 0, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1757, "dur": 300.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 1, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1793, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 2, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1794, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 3, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1795, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 4, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1795, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 5, "succ": false, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 1795, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 6, "succ": false, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 1794, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 7, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1794, "dur": 300.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 8, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1795, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 9, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1794, "dur": 300.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 10, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1793, "dur": 300.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "SC/task3", "task": "task3", "ep": 11, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1794, "dur": 300.1, "vlm_wait": 0.0, "reset": true}

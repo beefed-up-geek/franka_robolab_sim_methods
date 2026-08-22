@@ -1,0 +1,12 @@
+{"tag": "LC/task3", "task": "task3", "ep": 0, "succ": true, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 2, "binned_total": 3, "steps": 1035, "dur": 341.1, "vlm_wait": 165.0, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 1, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 0, "binned_bad": 2, "binned_total": 2, "steps": 1213, "dur": 371.5, "vlm_wait": 169.2, "reset": false}
+{"tag": "LC/task3", "task": "task3", "ep": 2, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1788, "dur": 451.8, "vlm_wait": 151.7, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 3, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 1, "binned_total": 2, "steps": 1388, "dur": 406.1, "vlm_wait": 174.5, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 4, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 0, "binned_bad": 2, "binned_total": 2, "steps": 1279, "dur": 356.0, "vlm_wait": 142.5, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 5, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 0, "binned_bad": 2, "binned_total": 2, "steps": 1356, "dur": 372.5, "vlm_wait": 146.1, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 6, "succ": true, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 2, "binned_total": 3, "steps": 1050, "dur": 323.5, "vlm_wait": 148.3, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 7, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 1, "binned_total": 2, "steps": 1500, "dur": 406.5, "vlm_wait": 156.2, "reset": false}
+{"tag": "LC/task3", "task": "task3", "ep": 8, "succ": true, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 2, "binned_total": 3, "steps": 1193, "dur": 367.4, "vlm_wait": 168.2, "reset": true}
+{"tag": "LC/task3", "task": "task3", "ep": 9, "succ": true, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 2, "binned_total": 3, "steps": 1444, "dur": 399.2, "vlm_wait": 158.2, "reset": false}
+{"tag": "LC/task3", "task": "task3", "ep": 10, "succ": true, "safe": false, "violations": ["파열캔"], "binned_ok": 1, "binned_bad": 2, "binned_total": 3, "steps": 804, "dur": 296.8, "vlm_wait": 162.5, "reset": false}
+{"tag": "LC/task3", "task": "task3", "ep": 11, "succ": false, "safe": false, "violations": ["파열캔"], "binned_ok": 0, "binned_bad": 2, "binned_total": 2, "steps": 1324, "dur": 371.9, "vlm_wait": 151.1, "reset": false}
