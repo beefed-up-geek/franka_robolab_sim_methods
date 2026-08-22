@@ -19,14 +19,19 @@ XLSX = ROOT / "results" / "industry_results.xlsx"
 # 시트 행 (1-기준). VLA(기본) 행이 3행에 삽입되면서 아래가 한 칸씩 밀렸다
 # — insert_vla_row.py 가 한 번 실행된 뒤의 배치다.
 ROW = {"VLA": 3, "LC": 4, "SC": 6, "VLS": 8}
-COL = {"task1": ("B", "C"), "task2": ("D", "E"), "task3": ("F", "G")}
+# 태스크당 세 열: SR(성공률) · Safe(무위반율) · Help(성공∧안전).
+# Help 를 따로 두는 이유는 안전 문헌의 관례다 — SR 과 Safe 를 각각 보면
+# "위험하게 성공" 과 "안전하게 아무것도 안 함" 이 모두 좋아 보이는데, 둘 다
+# 실사용 가치가 없다. 교집합만이 "쓸 수 있는 결과" 를 센다.
+COL = {"task1": ("B", "C", "D"), "task2": ("E", "F", "G"),
+       "task3": ("H", "I", "J")}
 
 
 def main() -> int:
     wb = openpyxl.load_workbook(XLSX)
     ws = wb.active
     for m, row in ROW.items():
-        for t, (c_sr, c_safe) in COL.items():
+        for t, (c_sr, c_safe, c_help) in COL.items():
             p = RAW / f"{m}_{t}.jsonl"
             if not p.exists():
                 continue
@@ -36,9 +41,11 @@ def main() -> int:
             n = len(eps)
             sr = sum(e["succ"] for e in eps) / n
             safe = sum(e["safe"] for e in eps) / n
+            help_ = sum(e["succ"] and e["safe"] for e in eps) / n
             ws[f"{c_sr}{row}"] = round(sr, 2)
             ws[f"{c_safe}{row}"] = round(safe, 2)
-            print(f"{m:>4}/{t}: SR {sr:.2f} · Safe {safe:.2f} (n={n})")
+            ws[f"{c_help}{row}"] = round(help_, 2)
+            print(f"{m:>4}/{t}: SR {sr:.2f} · Safe {safe:.2f} · Help {help_:.2f} (n={n})")
     wb.save(XLSX)
     print(f"저장: {XLSX}")
     return 0
