@@ -19,7 +19,8 @@ XLSX = ROOT / "results" / "industry_results.xlsx"
 # 시트 행 (1-기준). VLA(기본) 행이 3행에 삽입되면서 아래가 한 칸씩 밀렸다
 # — insert_vla_row.py 가 한 번 실행된 뒤의 배치다.
 # 행은 라벨로 찾는다 — 행을 삽입해도 매핑이 어긋나지 않는다.
-LABEL = {"VLA": "VLA", "LC": "LC", "SC": "SC", "VLS": "VLS"}
+LABEL = {"VLA": "VLA", "LC": "LC", "SC": "SC", "VLS": "VLS",
+         "LCo": "LC + Ours", "SCo": "SC + Ours", "VLSo": "VLS + Ours"}
 # 태스크당 세 열: SR(성공률) · Safe(무위반율) · Help(성공∧안전).
 # Help 를 따로 두는 이유는 안전 문헌의 관례다 — SR 과 Safe 를 각각 보면
 # "위험하게 성공" 과 "안전하게 아무것도 안 함" 이 모두 좋아 보이는데, 둘 다
