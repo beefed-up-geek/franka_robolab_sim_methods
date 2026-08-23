@@ -117,6 +117,13 @@ def compile_fn(body: str, argnames: tuple[str, ...]):
     ns = {"torch": torch, "math": math, "__builtins__":
           {"len": len, "min": min, "max": max, "abs": abs, "float": float,
            "sum": sum, "range": range, "True": True, "False": False,
+           # VLM 이 쓴 done 술어가 bool(...) 을 자주 쓴다 — 없으면 NameError 로
+           # 계획 전체가 버려지고 그 에피소드는 유도 없이 돈다 (실측 6회).
+           # 순수 계산용 내장은 넉넉히 열어두는 편이 안전하다.
+           "bool": bool, "int": int, "round": round, "any": any, "all": all,
+           "list": list, "tuple": tuple, "dict": dict, "sorted": sorted,
+           "enumerate": enumerate, "zip": zip, "isinstance": isinstance,
+           "str": str, "print": print,
            # torch.tensor 는 내부에서 torch.storage 를 import 한다 — __import__
            # 이 없으면 "storage_module && PyModule_Check" INTERNAL ASSERT 로
            # 죽는다 (Isaac 쪽 torch 에서 실측). 보상 코드가 거의 항상

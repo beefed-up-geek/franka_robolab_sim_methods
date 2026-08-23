@@ -134,6 +134,13 @@ def compile_fn(body: str, argnames: tuple[str, ...]):
     ns = {"torch": torch, "math": math, "__builtins__":
           {"len": len, "min": min, "max": max, "abs": abs, "float": float,
            "sum": sum, "range": range, "True": True, "False": False,
+           # VLM 이 쓴 done 술어가 bool(...) 을 자주 쓴다 — 없으면 NameError 로
+           # 계획 전체가 버려지고 그 에피소드는 유도 없이 돈다 (실측 6회).
+           # 순수 계산용 내장은 넉넉히 열어두는 편이 안전하다.
+           "bool": bool, "int": int, "round": round, "any": any, "all": all,
+           "list": list, "tuple": tuple, "dict": dict, "sorted": sorted,
+           "enumerate": enumerate, "zip": zip, "isinstance": isinstance,
+           "str": str, "print": print,
            # torch.tensor 는 내부에서 torch.storage 를 import 한다 — __import__
            # 이 없으면 "storage_module && PyModule_Check" INTERNAL ASSERT 로
            # 죽는다 (Isaac 쪽 torch 에서 실측). 보상 코드가 거의 항상
@@ -193,6 +200,7 @@ class Steering:
         # 새 계획은 새 장면 기준 — 이전 라운드의 잔존 키를 끌고 가지 않는다.
         self._sticky = {}
         kp = self.keypoints(node)
+        prev_stages, prev_idx = self.stages, self.idx
         desc = "\n".join(f"  kp[\"{k}\"] = {v}" for k, v in kp.items())
         img = node.images.get("front")
         self.stages = []
@@ -240,7 +248,15 @@ class Steering:
                       f"JSON again, using ONLY the kp keys listed above.")
                 print(f"[VLSa] 보상 검증 실패, 재시도: "
                       f"{type(e).__name__}: {e}", flush=True)
-        print("[VLSa] 계획 실패 — vanilla 로 진행", flush=True)
+        # VLM 이 세 번 다 빈 응답을 내는 일이 있다 (OpenRouter 일시 실패,
+        # 실측 ~1/20 에피). 그때 스테이지를 비우면 그 에피소드는 통째로
+        # 무유도가 되어 측정값이 VLSa 가 아니라 기본 VLA 가 된다 — 직전
+        # 계획이 있으면 그대로 이어 쓰는 편이 훨씬 낫다.
+        if prev_stages:
+            self.stages, self.idx = prev_stages, prev_idx
+            print("[VLSa] 계획 실패 — 직전 계획 유지", flush=True)
+        else:
+            print("[VLSa] 계획 실패 — vanilla 로 진행", flush=True)
 
     def grasped(self, node) -> float:
         """접촉 검증 파지 — steer_eval 에서 검증된 status.contact 판정."""

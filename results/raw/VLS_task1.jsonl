@@ -1,50 +1,50 @@
-{"tag": "VLS/task1", "task": "task1", "ep": 0, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 400, "dur": 111.9, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 1, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 399, "dur": 105.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 2, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 385, "dur": 102.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 3, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 361, "dur": 96.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 4, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 367, "dur": 97.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 5, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 393, "dur": 104.8, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 6, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 332, "dur": 88.3, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 7, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 369, "dur": 98.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 8, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 369, "dur": 98.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 9, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 391, "dur": 103.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 10, "succ": false, "safe": true, "violations": [], "steps": 454, "dur": 120.1, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 11, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 376, "dur": 99.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 12, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 357, "dur": 95.3, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 13, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 256, "dur": 67.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 14, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 337, "dur": 90.1, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 15, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 361, "dur": 96.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 16, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 432, "dur": 114.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 17, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 344, "dur": 90.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 18, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 377, "dur": 100.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 19, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 369, "dur": 98.3, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 20, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 385, "dur": 102.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 21, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 391, "dur": 103.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 22, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 353, "dur": 94.1, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 23, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 376, "dur": 99.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 24, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 368, "dur": 97.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 25, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 361, "dur": 96.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 26, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 376, "dur": 99.2, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 27, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 376, "dur": 99.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 28, "succ": false, "safe": true, "violations": [], "steps": 451, "dur": 120.1, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 29, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 369, "dur": 98.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 30, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 383, "dur": 101.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 31, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 376, "dur": 99.8, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 32, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 416, "dur": 109.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 33, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 369, "dur": 98.7, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 34, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 423, "dur": 112.2, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 35, "succ": false, "safe": true, "violations": [], "steps": 453, "dur": 120.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 36, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 374, "dur": 99.6, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 37, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 393, "dur": 104.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 38, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 351, "dur": 93.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 39, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 273, "dur": 73.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 40, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 367, "dur": 97.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 41, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 257, "dur": 68.9, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 42, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 368, "dur": 97.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 43, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 367, "dur": 97.3, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 44, "succ": false, "safe": true, "violations": [], "steps": 452, "dur": 120.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 45, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 353, "dur": 94.2, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 46, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 441, "dur": 117.5, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 47, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 359, "dur": 95.0, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 48, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 351, "dur": 93.4, "vlm_wait": 0.0, "reset": true}
-{"tag": "VLS/task1", "task": "task1", "ep": 49, "succ": true, "safe": false, "violations": ["손잡이"], "steps": 368, "dur": 97.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 0, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 367, "dur": 104.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 1, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 401, "dur": 107.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 2, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 369, "dur": 98.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 3, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 353, "dur": 94.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 4, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 425, "dur": 113.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 5, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 392, "dur": 104.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 6, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 375, "dur": 99.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 7, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 425, "dur": 113.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 8, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 390, "dur": 103.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 9, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 433, "dur": 115.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 10, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 353, "dur": 94.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 11, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 311, "dur": 82.8, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 12, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 368, "dur": 97.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 13, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 14, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 377, "dur": 101.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 15, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 408, "dur": 108.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 16, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 325, "dur": 86.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 17, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 368, "dur": 97.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 18, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 19, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 453, "dur": 120.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 20, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 21, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 22, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 384, "dur": 102.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 23, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 333, "dur": 88.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 24, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 358, "dur": 95.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 25, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 417, "dur": 111.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 26, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 356, "dur": 94.8, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 27, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 369, "dur": 98.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 28, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 95.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 29, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 344, "dur": 91.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 30, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 364, "dur": 96.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 31, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 385, "dur": 102.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 32, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 450, "dur": 120.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 33, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 369, "dur": 98.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 34, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 353, "dur": 94.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 35, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 353, "dur": 94.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 36, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 336, "dur": 89.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 37, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 350, "dur": 93.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 38, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 385, "dur": 102.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 39, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 40, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 340, "dur": 91.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 41, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 360, "dur": 95.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 42, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 367, "dur": 97.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 43, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 264, "dur": 70.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 44, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 353, "dur": 94.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 45, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 369, "dur": 98.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 46, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 361, "dur": 96.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 47, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 384, "dur": 102.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 48, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 369, "dur": 98.6, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLS/task1", "task": "task1", "ep": 49, "succ": true, "safe": false, "violations": ["손잡이"], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 375, "dur": 99.6, "vlm_wait": 0.0, "reset": true}
