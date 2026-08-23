@@ -92,13 +92,20 @@ run_one() {
     # task3 은 에피소드가 "세 캔 모두 담기"(2026-08-21 프로토콜)라 3배 길다.
     local TOUT=120
     [ "$T" = "task3" ] && TOUT=300
+    local BEFORE=$HAVE
     timeout $((NEED * (TOUT * 2 + 60) + 600)) docker exec $C bash -c \
         "export PYTHONPATH=$B/rclpy:\$PYTHONPATH \
             LD_LIBRARY_PATH=$B/lib:\$LD_LIBRARY_PATH \
             RMW_IMPLEMENTATION=rmw_fastrtps_cpp; \
          /isaac-sim/python.sh /workspace/methods/methods/$RUNNER \
             --task $T --episodes $NEED --timeout $TOUT" 2>&1 \
-        | grep -aE "^\[(LC|SC|VLS|VLSa|VLA|vlm)" || true
+        | grep -aE "^\[(LC|SC|VLS|VLSa|VLA|vlm)|Traceback|^[A-Za-z]*(Error|Exception):|No such file" || true
+    local AFTER=0
+    [ -f "$JS" ] && AFTER=$(wc -l < "$JS")
+    if [ "$AFTER" -le "$BEFORE" ]; then
+        echo "!! $M/$T: 에피소드가 하나도 안 쌓였다 (${BEFORE}→${AFTER}) — 러너 실패"
+    fi
+    echo "[eval] $M/$T 종료: ${AFTER}/${EP} $(date +%H:%M)"
 }
 
 for M in VLA LC SC VLS VLSa; do

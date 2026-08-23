@@ -116,7 +116,12 @@ def compile_fn(body: str, argnames: tuple[str, ...]):
         "    " + ln for ln in body.strip().splitlines())
     ns = {"torch": torch, "math": math, "__builtins__":
           {"len": len, "min": min, "max": max, "abs": abs, "float": float,
-           "sum": sum, "range": range, "True": True, "False": False}}
+           "sum": sum, "range": range, "True": True, "False": False,
+           # torch.tensor 는 내부에서 torch.storage 를 import 한다 — __import__
+           # 이 없으면 "storage_module && PyModule_Check" INTERNAL ASSERT 로
+           # 죽는다 (Isaac 쪽 torch 에서 실측). 보상 코드가 거의 항상
+           # torch.tensor(kp[...]) 를 쓰므로 반드시 열어줘야 한다.
+           "__import__": __import__}}
     exec(src, ns)          # noqa: S102 — 연구용, torch/math 만 노출
     return ns["_f"]
 

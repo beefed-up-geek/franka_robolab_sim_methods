@@ -85,7 +85,10 @@ Keypoints available at runtime as the dict `kp` (world meters, updated live).
 Each object also has `kp["<name>_yaw"]` = its rotation about the vertical axis
 in radians (cans stand upright, so yaw is the only meaningful rotation; use it
 if grasp orientation matters). Object names containing "burst" are damaged.
-Only objects actually present in the current round are listed.
+Only objects actually present in the current round are listed. The keys
+below are the COMPLETE set — referencing any other key (e.g. a can you see in
+the image but that is not listed) raises KeyError and disables steering for
+the whole episode. Use only these exact strings:
 {kp_desc}
 `traj` is a torch tensor of shape (T, 4): T future end-effector waypoints
 [x, y, z, gripper] proposed by the policy (gripper>0.5 = closed). All
@@ -130,7 +133,12 @@ def compile_fn(body: str, argnames: tuple[str, ...]):
         "    " + ln for ln in body.strip().splitlines())
     ns = {"torch": torch, "math": math, "__builtins__":
           {"len": len, "min": min, "max": max, "abs": abs, "float": float,
-           "sum": sum, "range": range, "True": True, "False": False}}
+           "sum": sum, "range": range, "True": True, "False": False,
+           # torch.tensor 는 내부에서 torch.storage 를 import 한다 — __import__
+           # 이 없으면 "storage_module && PyModule_Check" INTERNAL ASSERT 로
+           # 죽는다 (Isaac 쪽 torch 에서 실측). 보상 코드가 거의 항상
+           # torch.tensor(kp[...]) 를 쓰므로 반드시 열어줘야 한다.
+           "__import__": __import__}}
     exec(src, ns)          # noqa: S102 — 연구용, torch/math 만 노출
     return ns["_f"]
 
@@ -149,6 +157,7 @@ class Steering:
         self.max_dev = MAX_DEV      # 유도 변위 상한 (CLI 로 덮어쓸 수 있다)
         self.reinforce = False      # Schmitt: 보상이 낮아 유도를 강화하는 중인가
         self._hits = 0              # 전환 이력 카운터
+        self._sticky: dict = {}     # 에피소드 중 사라진 키를 살려두는 캐시
 
     def keypoints(self, node) -> dict:
         """논문의 3D 키포인트 스캐폴드 P — 지각 스택 대신 특권 상태로 만든다.
@@ -169,6 +178,11 @@ class Steering:
                 kp[f"{n}_yaw"] = round(float(y), 3)
         kp["bin"] = [0.26, 0.58, 0.10]
         kp["home"] = [0.36, 0.0, 0.472]
+        # 라운드 중 담긴 캔은 active 에서 빠지지만, 계획 시점의 보상이 그
+        # 이름을 참조하고 있다 — 마지막 위치로 키를 살려 KeyError 를 막는다.
+        for k, v in self._sticky.items():
+            kp.setdefault(k, v)
+        self._sticky.update(kp)
         if self.task == "task2" and node.status:
             terms = node.status.get("terminals") or {}
             if terms.get("pos"):
@@ -176,14 +190,17 @@ class Steering:
         return kp
 
     def plan(self, node) -> None:
+        # 새 계획은 새 장면 기준 — 이전 라운드의 잔존 키를 끌고 가지 않는다.
+        self._sticky = {}
         kp = self.keypoints(node)
         desc = "\n".join(f"  kp[\"{k}\"] = {v}" for k, v in kp.items())
         img = node.images.get("front")
         self.stages = []
-        for _ in range(3):                     # 파싱·컴파일 실패 재시도
+        fb = ""                                # 직전 시도의 실패 사유
+        for _ in range(3):                     # 파싱·컴파일·실행 실패 재시도
             d = self.vlm.call_json(
                 PLAN_PROMPT.format(goal=GOALS[self.task],
-                                   text=TASK_TEXT[self.task], kp_desc=desc),
+                                   text=TASK_TEXT[self.task], kp_desc=desc) + fb,
                 images=[img] if img else [], max_tokens=1600)
             if not d or not isinstance(d.get("stages"), list):
                 continue
@@ -199,6 +216,15 @@ class Steering:
                         "reward": compile_fn(s["reward"], ("traj", "kp")),
                         "done": compile_fn(s["done"], ("kp", "eef", "gripper")),
                     })
+                # **실행 검증** — 컴파일만 하면 없는 키포인트를 참조하는 보상이
+                # 그대로 통과해, 서버가 매 호출마다 KeyError 로 죽는다 (실측:
+                # VLSa/task3 1334 회 유도 실패 = 에피소드 전체 유도 소실).
+                probe = torch.zeros(4, 4)
+                eef0 = [0.36, 0.0, 0.32]
+                for st in stages:
+                    r = st["reward"](probe, kp)
+                    float(r)                   # 스칼라 텐서여야 한다
+                    bool(st["done"](kp, eef0, 0.0))
                 if stages:
                     self.stages = stages
                     self.idx = 0
@@ -209,7 +235,11 @@ class Steering:
                           f"(VLM {self.vlm.used}/{self.vlm.budget})", flush=True)
                     return
             except Exception as e:            # noqa: BLE001
-                print(f"[VLSa] 보상 컴파일 실패, 재시도: {e}", flush=True)
+                fb = (f"\n\nYour previous answer failed with "
+                      f"{type(e).__name__}: {e}. Fix it and return the full "
+                      f"JSON again, using ONLY the kp keys listed above.")
+                print(f"[VLSa] 보상 검증 실패, 재시도: "
+                      f"{type(e).__name__}: {e}", flush=True)
         print("[VLSa] 계획 실패 — vanilla 로 진행", flush=True)
 
     def grasped(self, node) -> float:
