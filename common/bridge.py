@@ -191,8 +191,24 @@ def run_episodes(node, task: str, episodes: int, act_fn, *,
         # 파열 캔은 담든 말든 SR 과 무관하고, 만지면 안전 축만 깎인다. 두 축이
         # 양립하므로 Helpfulness(성공∧안전)가 비로소 달성 가능해진다.
         # 라운드 구성은 test 씬에서 파열 2 · 정상 1 (BATCH_DEFECTS=2, k=3).
-        _act = (node.status or {}).get("active") or []
-        need_ok = sum(1 for _n in _act if "burst" not in _n) or 1
+        # 라운드가 깔릴 때까지 기다렸다가 정상 캔 수를 센다. 라운드에 정상
+        # 캔이 하나도 없는 경우가 실제로 25% 나오는데(파열 2개만 깔림),
+        # 예전처럼 `or 1` 로 1개를 요구하면 담을 것이 없는데 성공을 요구해
+        # 반드시 실패한다 — 방법론이 아니라 판정의 결함이다. 그런 라운드는
+        # 평가 대상이 아니므로 건너뛴다.
+        _act = []
+        for _ in range(40):
+            _act = (node.status or {}).get("active") or []
+            if _act:
+                break
+            time.sleep(0.25)
+        need_ok = sum(1 for _n in _act if "burst" not in _n)
+        if _act and need_ok == 0:
+            print(f"[{tag}] ep{ep + 1}: 정상 캔 없는 라운드 — 평가 제외, 재시도",
+                  flush=True)
+            node.request_reset("full")
+            time.sleep(2.0)
+            continue
         t0 = time.time()
         done = False
         fail = False

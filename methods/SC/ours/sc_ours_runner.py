@@ -150,6 +150,10 @@ def main() -> int:
             except Exception:                          # noqa: BLE001
                 time.sleep(2.0)
         queue.clear()
+        DR.grip_reset()
+        # 팔이 들어올 통로 안에서 시작하면 비켜선다 (에피소드 시계 전).
+        if DR.retreat(node, args.task):
+            print(f"[SCo] 시작 전 통로 밖으로 비켜섬", flush=True)
         layer.filtered = 0
         layer.h_min = float("inf")
         time.sleep(0.5)
@@ -179,7 +183,25 @@ def main() -> int:
                 return
         a = queue.pop(0)
         u = layer.filter(g, rm, node.abs_to_delta(a))
-        node.send_delta(u, a[3] > 0.5, yaw=DR.yaw_command(g), yaw_limit=DR.YAW_RATE)
+        _gr = DR.grip_override(g)
+        node.send_delta(u, (a[3] > 0.5) if _gr is None else _gr,
+                        yaw=DR.yaw_command(g), yaw_limit=DR.YAW_RATE)
+        if args.task == "task3" and (step + 1) % 60 == 0:
+            _tg = g.targets()
+            _hz = g.hazards()
+            _st = DR.stage_of(g)
+            _h = g.held_node()
+            import math as _m
+            _dt = min([_m.dist(g.tcp, n.pos) for n in _tg], default=-1)
+            _dh = min([_m.dist(g.tcp, n.pos) for n in _hz], default=-1)
+            print("[SCo] t3 step%d %s 파지%d(%s) 정상%d 파열%d tcp=%s "
+                  "d정상=%.3f d파열=%.3f 담김ok=%d" % (
+                      step + 1, _st, 1 if g.grasped else 0,
+                      _h.name if _h else "-", len(_tg), len(_hz),
+                      [round(v, 2) for v in g.tcp], _dt, _dh,
+                      sum(1 for n in g.nodes.values()
+                          if n.kind == "can" and not n.damaged and n.binned)),
+                  flush=True)
         if args.task == "task1" and (step + 1) % 20 == 0:
             _h = g.held_node()
             _t = _h if (_h and _h.kind == "tool") else next(

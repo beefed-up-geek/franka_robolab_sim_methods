@@ -1,0 +1,12 @@
+{"tag": "LCo/task3", "task": "task3", "ep": 0, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 87, "dur": 20.1, "vlm_wait": 0.0, "reset": true}
+{"tag": "LCo/task3", "task": "task3", "ep": 1, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 156, "dur": 26.6, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 2, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 93, "dur": 15.9, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 3, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 92, "dur": 15.6, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 4, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 203, "dur": 34.6, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 5, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 180, "dur": 30.7, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 6, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 93, "dur": 15.8, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 7, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 139, "dur": 23.7, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 8, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 85, "dur": 14.4, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 9, "succ": false, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 1753, "dur": 300.1, "vlm_wait": 0.0, "reset": false}
+{"tag": "LCo/task3", "task": "task3", "ep": 10, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 103, "dur": 17.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "LCo/task3", "task": "task3", "ep": 11, "succ": true, "safe": true, "violations": [], "binned_ok": 1, "binned_bad": 0, "binned_total": 1, "steps": 129, "dur": 21.8, "vlm_wait": 0.0, "reset": false}

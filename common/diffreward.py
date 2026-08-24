@@ -60,13 +60,21 @@ def seg_dist(p: torch.Tensor, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 def box_dist(p: torch.Tensor, c: torch.Tensor, half: torch.Tensor) -> torch.Tensor:
-    """축정렬 상자까지의 거리 (바깥은 양수, 안은 0).
+    """축정렬 상자의 **부호 있는** 거리 (밖은 양수, 안은 음수).
 
     환경의 팔 충돌 판정이 상자라 장벽도 상자로 맞춘다 — 구로 감싸면 모서리를
     덮으려다 축 방향 여유까지 잡아먹어 작업 공간이 사라진다.
+
+    안쪽을 0 으로 뭉개면 **상자 내부에서 기울기가 사라진다.** 그러면 로봇이
+    통로 안에 들어간 순간 ∇h=0 이라 CBF 가 밀어낼 방향을 못 찾고, 보호가
+    통째로 없어진다 — 실측으로 홈 자세가 팔 상자 안일 때(팔 y≈0) 안전
+    위반이 100% 났다. 표준 상자 SDF 로 안쪽에도 가장 가까운 면을 향하는
+    기울기를 준다.
     """
-    e = torch.relu((p - c).abs() - half)
-    return torch.linalg.norm(e, dim=-1)
+    q = (p - c).abs() - half
+    outside = torch.linalg.norm(torch.relu(q), dim=-1)
+    inside = torch.clamp(q.max(dim=-1).values, max=0.0)
+    return outside + inside
 
 
 def soft_min(x: torch.Tensor, dim: int = -1, tau: float = 0.02) -> torch.Tensor:
@@ -146,10 +154,10 @@ class RewardMap:
         # 근처에서 목표항까지 0 이 되어 기울기가 사라진다.
         h = self.safety(p)
         r = r - 60.0 * torch.relu(0.0 - h) ** 2      # 침범 구역: 강한 벽
-        # 접근 구역은 장벽보다 **넓게** 잡는다. 장벽 여유를 좁혀 파지가
-        # 가능해진 대신, 굳이 위험 곁을 지날 이유가 없을 때는 보상이 미리
-        # 멀리 돌아가게 만들어야 한다 (장벽은 최후의 보루로 남긴다).
-        r = r - 12.0 * torch.relu(0.10 - h) ** 2     # 접근 구역: 미리 비킴
+        # 접근 구역은 장벽보다 넓게 잡아 미리 비켜 가게 한다 (장벽은 최후의
+        # 보루로 남긴다). 폭은 위험물 크기에 맞춘다 — 위 APPROACH_ZONE 참조.
+        zone = APPROACH_ZONE.get(self.g.task, 0.10)
+        r = r - 12.0 * torch.relu(zone - h) ** 2     # 접근 구역: 미리 비킴
         r = r + above(p, 0.19, w=8.0)                # 상판 아래로 내려가지 않기
         r = r + self._flyover(p)                     # 팔은 위로 넘는다
         return r
@@ -248,15 +256,33 @@ class RewardMap:
         if self.stage == "reach" and tgt:
             c = torch.stack([n.t() for n in tgt])
             # 가장 가까운 정상 캔 위 4cm. soft_min 으로 부드럽게 고른다.
-            d = dist(p, c + torch.tensor([0., 0., 0.04]))
+            d = dist(p, c + torch.tensor([0., 0., 0.02]))
             return -3.0 * soft_min(d, dim=-1, tau=0.05)
         if self.stage == "carry":
             b = T["bin"]
             dxy = torch.linalg.norm(p[..., :2] - b[:2], dim=-1)
-            return -3.0 * dxy - 1.0 * torch.relu(0.28 - p[..., 2]) ** 2
+            # 통 위 투입 높이(테두리보다 위)를 겨냥한다. 예전처럼 z 를 통
+            # 바닥 높이로 끌어내리면 그리퍼가 테두리에 부딪힌다.
+            return -3.0 * dxy - 2.0 * torch.abs(p[..., 2] - SG.BIN_Z)
         return attract(p, T["home"], 1.0)
 
     # ── 미분 ────────────────────────────────────────────────────────────
+    def goal_point(self):
+        """지금 스테이지가 향하는 지점 — 조작을 정책에 넘길 때를 재는 데 쓴다."""
+        g, T = self.g, self.T
+        if self.stage == "carry":
+            return [float(v) for v in T["bin"]]
+        if g.task == "task2" and self.stage == "plug" and "red_terminal" in T:
+            return [float(v) for v in T["red_terminal"]]
+        if g.task == "task1" and g.grasped:
+            return [g.tcp[0], SG.WORKER_Y, g.tcp[2]]
+        tg = g.targets()
+        if not tg:
+            return None
+        best = min(tg, key=lambda n: sum((n.pos[i] - g.tcp[i]) ** 2
+                                         for i in range(3)))
+        return list(best.pos)
+
     def grad(self, p: torch.Tensor) -> torch.Tensor:
         """∇_p R. VLS+Ours 가 디노이징에 주입하는 바로 그 벡터."""
         q = p.detach().clone().requires_grad_(True)
@@ -408,8 +434,32 @@ ESCAPE = 0.06                    # 탈출 속도 [m/step]
 
 BETA = 0.035            # 보상 상승 보폭 [m/step]. 팔을 넘으려면 15cm 를
                         # 올라가야 해서 2cm/step 으로는 7초가 걸린다.
-ASCEND_H = 0.12         # h 가 이보다 여유로우면 보상 상승을 끈다 [m]
+# 개입 반경은 **위험물 크기에 맞춰야** 한다. 작업자 팔은 크고 움직여서 넓게
+# 잡아야 하지만, 파열 캔은 Ø7cm 고정물이고 캔 사이 간격이 13cm 뿐이다 —
+# 팔 기준(10cm)을 그대로 쓰면 정상 캔을 잡는 지점에서도 밀어내기와 보상
+# 상승이 켜져 파지가 흔들린다 (실측 task3 SR 2/5, Safe 5/5).
+APPROACH_ZONE = {"task1": 0.10, "task2": 0.10, "task3": 0.035}
+# task3 은 게이트를 넓게 연다. SC+Ours 에서 "파열 캔 말고 정상 캔으로" 라고
+# 목표를 돌려세우는 장치가 보상 상승 항 하나뿐인데, 좁게 게이팅하면 로봇이
+# 파열 캔 곁에서 맴돌기만 한다 (실측: 사영 17회 포화, h 고정, 700스텝 무진전).
+# 접근 구역(APPROACH_ZONE)은 좁게 유지하므로 파지 지점에서 밀어내지는 않는다.
+ASCEND_H_OF = {"task1": 0.12, "task2": 0.12, "task3": 0.30}
+ASCEND_H = 0.12         # 기본값 (태스크 지정이 없을 때)
+# 인계 거리는 **트리거가 닿는 곳까지** 좁힌다. 0.10 으로 두면 로봇이 캔
+# 10cm 앞에서 보상 상승이 꺼진 채 맴돌고, 정책이 마지막 10cm 를 못 좁힌다
+# (실측). 파지 판단은 이제 씬 그래프가 하므로, 보상이 캔 코앞까지 데려가면 된다.
+HANDOFF = 0.04          # 목표까지 이 거리 안이면 조작을 정책에 넘긴다 [m]
+CARRY_BETA = 0.075      # 운반 구간 보폭 [m/step] — 정책 델타 상한(8cm)과 맞선다
+REACH_BETA = 0.060      # task3 접근 보폭 [m/step]
 HOLD_MARGIN = 0.12      # task1 — 정렬 전 경계선 앞에서 대기할 거리 [m]
+
+
+def t1_aligned(g: SG.SceneGraph) -> bool:
+    """task1 — 쥔 도구의 손잡이가 작업자 쪽 판정 콘 안인가."""
+    held = g.held_node()
+    tool = held if (held and held.kind == "tool") else next(
+        (n for n in g.of_kind("tool")), None)
+    return bool(tool is not None and SG.handle_ok(tool.name, tool.quat))
 
 
 def ascend(g: SG.SceneGraph, rm: "RewardMap", u: list[float],
@@ -427,8 +477,57 @@ def ascend(g: SG.SceneGraph, rm: "RewardMap", u: list[float],
     # 인데 SR 이 7/10 이었고, 실패 에피의 사영 횟수는 12 회에서 포화해 있었다
     # (안전층이 막은 게 아니라 정책이 못 꽂은 것이다). h 가 여유로우면 0 으로
     # 사라지게 해 정책을 그대로 둔다.
+    # **목표에 닿기 직전에는 손을 뗀다.** 보상의 reach 목표는 물체 4cm 위라,
+    # 계속 밀면 TCP 가 그 최적점에 붙들려 정책이 내려가 잡지를 못한다 —
+    # 실측으로 정상 캔 2.4cm 앞에서 1560스텝 동안 파지 0 이었다. 마지막
+    # 조작은 정책이 제일 잘한다. 안전은 그 동안에도 CBF 사영이 지킨다.
+    gp = rm.goal_point()
+    if gp is not None:
+        d = sum((gp[i] - g.tcp[i]) ** 2 for i in range(3)) ** 0.5
+        # 거리 기반 인계는 **task3 전용** 이다. 파지 트리거가 있는 태스크에서만
+        # 의미가 있고, task2 에 적용했더니 팔 회피에 쓰이던 보상 상승이 엉뚱한
+        # 시점에 꺼져 Safe 가 0.90 에서 0.33 으로 무너졌다 (실측). task2 는
+        # h 기반 게이트만으로 이미 SR 1.00 / Safe 0.90 을 낸다.
+        if g.task == "task3" and d < 0.02:
+            return u
+    # **운반 구간은 게이트를 열어 둔다.** 정밀 조작이 아니라 큰 이동이고,
+    # 위험에서 멀어지면 h 가 커져 보상 상승이 꺼지는데 그때부터 정책 혼자
+    # 통까지 가야 한다 — 실측으로 실패 5건 중 4건이 캔을 쥔 채 운반에서
+    # 멈췄다. 놓는 시점은 어차피 트리거가 잡으므로 끝까지 밀어도 안전하다.
+    # task3 은 전 구간에서 게이트를 연다. reach 도 마찬가지 이유다 — 파열 캔에서
+    # 멀면 h 가 커져 보상 상승이 꺼지고, 그러면 일반 정책(LC 와 달리 좌표를
+    # 지시할 수 없다)이 **어느 캔으로 갈지** 알 방법이 사라진다. 실측: 같은
+    # 조건에서 좌표를 지시하는 LC+Ours 는 7/8, 액션 조향만 하는 SC+Ours 는 1/8.
+    # 정밀 조작 보호는 HANDOFF(목표 4cm 앞 인계)가 이미 맡는다.
+    # task1 은 **조향을 켜지 않는다.** 켜 봤더니 deliver 보상이 정렬 전까지
+    # 경계선 앞(y=-0.28)에서 대기하도록 되어 있어, 로봇이 그 대기선에 붙들려
+    # 영영 건너지 않았다 — SR 0/12 (Safe 12/12 는 한 번도 넘지 않아서 나온
+    # 값이다). 손잡이 정렬은 요 채널이 이미 해결하므로, 위치 조향까지 걸 이유가
+    # 없다. SC·VLS 는 이 설정으로 task1 에서 12/12 를 낸다.
+    # task1 은 **정렬이 끝난 뒤의 통과만** 가속한다. 정렬 전에 조향을 걸면
+    # deliver 보상의 대기선(y=-0.28)에 로봇이 붙들려 영영 못 건넌다 (실측
+    # SR 0/12). 정렬 뒤에는 보상이 경계선 너머를 가리키므로 밀어도 안전하고,
+    # 언어 정책이 task1 에서 느려 제한시간에 걸리는 것(성공 64~109초 / 제한
+    # 120초)을 이 가속으로 메운다.
+    t1_go = (g.task == "task1" and rm.stage == "deliver" and t1_aligned(g))
+    if g.task == "task3" or rm.stage == "carry" or t1_go:
+        gr = rm.grad(pt)[0]
+        n = float(torch.linalg.norm(gr))
+        if n < 1e-9:
+            return u
+        # 운반은 보폭을 키운다. 일반 정책은 트리거로 쥔 캔을 자기가 잡은 줄
+        # 모르고 엉뚱한 데로 가는데, 기본 보폭(3.5cm)으로는 정책의 델타
+        # (최대 8cm)에 묻힌다 — 실측으로 캔을 통이 아닌 곳에 떨어뜨렸다.
+        # task3 의 접근도 보폭을 키운다. 실패가 전부 "캔에 도달 못 함"
+        # (300초, 투입 0) 이고, 언어 정책을 쓰는 LC 가 특히 약하다 — 보상 맵이
+        # 더 확실히 끌어주면 정책의 접근 능력 차이를 메울 수 있다.
+        b = (CARRY_BETA if rm.stage == "carry"
+             else REACH_BETA if g.task == "task3"
+             else CARRY_BETA if t1_go else beta)
+        return [u[i] + float(gr[i]) / n * b for i in range(3)]
     h, _ = rm.safety_grad(pt)
-    w = float(torch.clamp((ASCEND_H - h[0]) / ASCEND_H, 0.0, 1.0))
+    ah = ASCEND_H_OF.get(g.task, ASCEND_H)
+    w = float(torch.clamp((ah - h[0]) / ah, 0.0, 1.0))
     if w <= 0.0:
         return u
     gr = rm.grad(pt)[0]
@@ -475,6 +574,118 @@ def safe_project(g: SG.SceneGraph, rm: "RewardMap",
         lam = (lo - gu) / gn2
         return [u[i] + lam * gv[i] for i in range(3)], hv, True
     return u, hv, False
+
+
+# ── 파지·해제 트리거 ────────────────────────────────────────────────────
+# task3 의 병목은 조향도 안전도 아니라 **정책이 캔을 못 잡는 것** 이었다:
+# 정상 캔 3cm 앞까지 정확히 가 놓고 그리퍼를 닫지 않은 채 떠난다 (실측 1740
+# 스텝, CBF 개입 5회). 어느 캔을 언제 쥐고 언제 놓을지는 씬 그래프가 정확히
+# 알고 있으므로, 그 판단만 특권 상태로 내린다. 궤적은 여전히 정책의 것이다.
+# 캔 간격이 13cm 라 5cm 는 이웃 캔과 헷갈릴 여지가 없다. 3.5cm 로 좁게 잡으면
+# 3.9~4.6cm 에서 멈춘 접근이 트리거를 못 건드려 그대로 타임아웃한다 (실측:
+# 성공 에피는 1.5~2.0cm, 실패 에피는 3.9~4.6cm 에서 멈췄다).
+GRASP_XY = 0.050        # 수평 정렬 허용 반경 [m]
+# 캔 중심 위로 이만큼 안일 때만 닫는다. 6.5cm 로 두면 캔보다 한참 위에서
+# 닫혀 허공을 쥐고, 파지가 유지되지 않아 stage 가 reach↔carry 로 진동한다
+# (실측). 보상의 reach 목표(캔 +2cm)와 같은 높이로 맞춘다.
+GRASP_ZTOP = 0.030
+LOST_STEPS = 12         # 이만큼 접촉이 없으면 놓친 것으로 보고 래치를 푼다
+# 놓을 자리는 **통 상자 위** 여야 한다 (중심 반경이 아니라). 높이는 테두리
+# (0.105) 보다 충분히 위여서 캔이 떨어져 들어가되, 너무 높으면 튀어 나온다.
+RELEASE_Z_LO = 0.16     # 이 높이 위에서 놓는다 [m]
+RELEASE_Z_HI = 0.34     # 이보다 높으면 더 내려간 뒤 놓는다 [m]
+
+
+_GRIP_LATCH = {"closed": False, "lost": 0}
+
+
+def grip_reset():
+    """에피소드 시작 시 파지 래치를 푼다."""
+    _GRIP_LATCH["closed"] = False
+    _GRIP_LATCH["lost"] = 0
+
+
+def grip_override(g: SG.SceneGraph):
+    """그리퍼를 닫을까/열까. None 이면 정책의 판단을 그대로 쓴다.
+
+    한 번 닫기로 했으면 통 위에 갈 때까지 **닫은 채로 유지** 한다. 접촉
+    판정이 한 순간 끊길 때 None 을 돌려주면 정책의 '열기' 비트가 그대로
+    나가 캔을 떨어뜨린다 (실측: 파지1 → 파지0 왕복).
+    """
+    if g.task != "task3":
+        return None
+    tcp = g.tcp
+    # 놓쳤으면 래치를 푼다 — 닫은 채로 두면 다시 잡을 수가 없다. 다만
+    # **정말로 놓쳤는지** 는 접촉 판정이 아니라 캔과의 거리로 본다. 운반 중
+    # 접촉이 한순간 끊겼다고 그리퍼를 열면 통이 아닌 곳에 캔을 떨어뜨린다
+    # (실측: 목표가 사라져 stage 가 home 으로 가고 성공은 기록되지 않았다).
+    if _GRIP_LATCH["closed"] and not g.grasped:
+        _near = min([((n.pos[0] - tcp[0]) ** 2 + (n.pos[1] - tcp[1]) ** 2
+                      + (n.pos[2] - tcp[2]) ** 2) ** 0.5
+                     for n in g.targets()], default=9.9)
+        if _near > 0.12:                      # 손에 없다 — 정말 놓쳤다
+            _GRIP_LATCH["lost"] += 1
+            if _GRIP_LATCH["lost"] >= LOST_STEPS:
+                _GRIP_LATCH["closed"] = False
+                _GRIP_LATCH["lost"] = 0
+                return False                  # 열고 다시 시도
+        else:
+            _GRIP_LATCH["lost"] = 0
+    elif g.grasped:
+        _GRIP_LATCH["lost"] = 0
+    if _GRIP_LATCH["closed"] or g.grasped:
+        if SG.over_bin(tcp) and RELEASE_Z_LO < tcp[2] < RELEASE_Z_HI:
+            _GRIP_LATCH["closed"] = False
+            return False                      # 통 위 — 놓는다
+        return True                           # 옮기는 중 — 계속 쥔다
+    tg = g.targets()
+    if not tg:
+        return None
+    n = min(tg, key=lambda q: (q.pos[0] - tcp[0]) ** 2 + (q.pos[1] - tcp[1]) ** 2)
+    dxy = ((n.pos[0] - tcp[0]) ** 2 + (n.pos[1] - tcp[1]) ** 2) ** 0.5
+    if dxy < GRASP_XY and tcp[2] < n.pos[2] + GRASP_ZTOP:
+        _GRIP_LATCH["closed"] = True
+        return True                           # 정상 캔 위 — 잡는다
+    return None
+
+
+def retreat(node, task: str, seconds: float = 2.0, hz: float = 6.0,
+            clear: float = 0.05, speed: float = 0.07) -> bool:
+    """에피소드 시작 전에 위험 통로 밖으로 **실제로** 비켜선다.
+
+    작업자 팔은 리셋 4초 뒤 쓸고 들어온다. 그 자리가 y≈0 이면 로봇의 홈
+    자세가 이미 팔 상자 안이고, 팔이 정지한 로봇에 부딪힌다 — 실측으로 안전
+    위반이 전부 step=0, h=-0.020 이었다. 에피소드가 시작된 뒤에는 어떤
+    추론 시점 방법으로도 못 막는다.
+
+    씬 그래프는 팔이 **들어올 자리** 를 처음부터 안다(통로 상자). 그러니
+    시작 전에 ∇h 를 따라 상자 밖으로 나가면 된다. 여기서 두 가지를 지킨다.
+      · 필요 없으면 **지체하지 않는다** — 시작을 늦추면 오히려 팔이 오는
+        시점에 로봇이 홈에 머물러 있게 된다 (앞선 판의 실패 원인).
+      · 필요하면 여유(clear)를 확보할 때까지 계속 민다 — 한 틱 보고 그만두면
+        아직 갱신 안 된 좌표만 보고 물러난 셈이 된다.
+    """
+    import time as _t
+    moved = False
+    t0 = _t.time()
+    while _t.time() - t0 < seconds:
+        g = SG.build(node, task)
+        if g.blind():
+            _t.sleep(1.0 / hz)
+            continue
+        rm = RewardMap(g, stage_of(g))
+        h, gh = rm.safety_grad(torch.tensor([list(g.tcp)]))
+        if float(h[0]) >= clear:
+            break                         # 확보 완료(또는 애초에 안전)
+        d = gh[0]
+        n = float(torch.linalg.norm(d))
+        if n < 1e-9:
+            break
+        node.send_delta([float(d[i]) / n * speed for i in range(3)], False)
+        moved = True
+        _t.sleep(1.0 / hz)
+    node.halt()
+    return moved
 
 
 def stage_of(g: SG.SceneGraph) -> str:

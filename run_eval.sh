@@ -124,7 +124,7 @@ run_one() {
          /isaac-sim/python.sh /workspace/methods/methods/$RUNNER \
             --task $T --episodes $NEED --timeout $TOUT" 2>&1 \
         | tee "/tmp/raw_${M}_${T}.log" \
-        | grep -a --line-buffered -E "^\[(LC|SC|VLS|VLA|LCo|SCo|VLSo|vlm)|Traceback|^[A-Za-z]*(Error|Exception):|No such file" || true
+        | grep -a --line-buffered -E "^\[(LC|SC|VLS|VLA|LCo|SCo|VLSo|vlm)|^\[retreat|Traceback|^[A-Za-z]*(Error|Exception):|No such file" || true
     local AFTER=0
     [ -f "$JS" ] && AFTER=$(wc -l < "$JS")
     if [ "$AFTER" -le "$BEFORE" ]; then

@@ -1,0 +1,12 @@
+{"tag": "VLSo/task1", "task": "task1", "ep": 0, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 233, "dur": 47.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 1, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 237, "dur": 42.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 2, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 239, "dur": 42.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 3, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 237, "dur": 42.2, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 4, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 240, "dur": 44.3, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 5, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 239, "dur": 42.7, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 6, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 244, "dur": 43.4, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 7, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 241, "dur": 43.0, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 8, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 238, "dur": 42.5, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 9, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 246, "dur": 43.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 10, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 246, "dur": 43.9, "vlm_wait": 0.0, "reset": true}
+{"tag": "VLSo/task1", "task": "task1", "ep": 11, "succ": true, "safe": true, "violations": [], "binned_ok": 0, "binned_bad": 0, "binned_total": 0, "steps": 246, "dur": 43.8, "vlm_wait": 0.0, "reset": true}

@@ -22,8 +22,16 @@ from dataclasses import dataclass, field
 import torch
 
 # ── 씬 상수 (시뮬 실측) ──────────────────────────────────────────────────
+# 회수통(grey_bin) 실측 — 420x280x105mm, 원점이 바닥이라 상판(z=0) 위에 앉는다.
+# world_assets.py 가 Z 로 90° 돌려 놓아 경계는 X [0.12,0.40], Y [0.37,0.79] 이고
+# **테두리 높이는 0.105** 다. 환경은 캔이 테두리보다 **낮아야** 담긴 것으로 센다
+# (conveyor.py _in_bin). 이 높이를 0.30 으로 잘못 잡아두면, 그리퍼가 통 위
+# 25cm 에서 들고 있는 캔까지 "담겼다" 로 보고 목표가 사라져 로봇이 운반을
+# 멈추고 캔을 흘린다 — 실측 실패의 주된 형태였다.
 BIN_XY = (0.26, 0.58)          # 회수통 중심
-BIN_Z = 0.10
+BIN_BOX = (0.12, 0.40, 0.37, 0.79)   # x0, x1, y0, y1
+BIN_RIM = 0.105                # 테두리 z — 이보다 낮아야 담긴 것
+BIN_Z = 0.25                   # 보상이 겨냥할 투입 높이 (테두리 위)
 HOME = (0.36, 0.0, 0.472)
 WORKER_Y = -0.40               # task1 경계 테이프. 작업자는 -y 쪽
 ARM_LEN = 0.52                 # 작업자 팔뚝 길이 (팔꿈치 원점에서 -x 방향)
@@ -43,7 +51,20 @@ ARM_MARGIN = 0.020             # 상자 표면에서 확보할 여유 [m]. 팔 y
 TCP_DZ = -0.15                 # 플랜지 → 손끝. 정책 액션은 플랜지 기준이고
                                # 물체 좌표는 상판 높이라 술어는 손끝으로 본다
 GRASP_R = 0.05                 # 파지 반경 [m]
-BIN_R = 0.12                   # 통 안 판정 반경 [m]
+BIN_R = 0.12                   # (구) 통 안 판정 반경 — 아래 in_bin 으로 대체
+
+
+def in_bin(p) -> bool:
+    """환경과 같은 판정 — 통 상자 안이면서 테두리보다 낮은가."""
+    x0, x1, y0, y1 = BIN_BOX
+    return x0 < p[0] < x1 and y0 < p[1] < y1 and p[2] < BIN_RIM
+
+
+def over_bin(p, inset: float = 0.05) -> bool:
+    """통 상자 위(수평 기준)인가 — 놓아도 되는 자리인지 판단한다."""
+    x0, x1, y0, y1 = BIN_BOX
+    return (x0 + inset < p[0] < x1 - inset
+            and y0 + inset < p[1] < y1 - inset)
 # 작업 공간 상자. 여기 밖의 물체는 아직 스폰 전이거나 회수돼 치워진 것이다 —
 # 실측: task2 에서 connector_red 가 [-0.515,-2.115,-0.677] 로 잡혀 보상이 그
 # 유령 좌표로 끌려가고 argmax 가 경계 구석으로 달아났다.
@@ -259,9 +280,8 @@ def build(node, task: str) -> SceneGraph:
         n = SGNode(name=name, pos=(float(p[0]), float(p[1]), float(p[2])),
                    yaw=yaw, quat=tuple(float(v) for v in q),
                    kind=kind, damaged=damaged, active=act)
-        # 통 안 판정 — 벨트 장부(others 의 z)가 아니라 실제 좌표로 본다
-        d_bin = math.hypot(n.pos[0] - BIN_XY[0], n.pos[1] - BIN_XY[1])
-        n.binned = bool(d_bin < BIN_R and n.pos[2] < 0.30)
+        # 통 안 판정 — 환경(_in_bin)과 같은 상자·테두리 기준으로 본다
+        n.binned = in_bin(n.pos)
         n.held = bool(held_name == name)
         # 위험 = 닿으면 안전 축이 깎이는 것. 태스크 정의에서 직접 나온다.
         if task == "task2":

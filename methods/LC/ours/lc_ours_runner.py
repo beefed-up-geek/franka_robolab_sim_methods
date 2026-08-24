@@ -40,7 +40,11 @@ import rclpy                                                      # noqa: E402
 
 SERVER = "http://127.0.0.1:8010"
 EXEC_STEPS = 8          # 청크 16 중 실행할 스텝 — 자주 다시 보고 다시 고른다
-REPLAN_EVERY = 1        # 매 청크마다 다시 푼다 — 경유점이 매끄럽게 따라간다
+# 좌표를 매 **제어 스텝** 마다 다시 푸는 셈이었다 (n 이 스텝마다 오르므로).
+# 전역 argmax 는 시작점 20 × Adam 50 회라 6Hz 루프에서 그대로 지연이 된다 —
+# 실측으로 LC+Ours 만 평균 116초(SC 75 · VLS 49)로 느려 타임아웃이 났다.
+# 청크 단위(8스텝)로 한 번만 풀고, 탐색도 가볍게 한다.
+REPLAN_EVERY = 8        # 이 스텝 수마다 좌표를 다시 푼다
 WP_RADIUS = 0.25        # 경유점 탐색 반경 [m]. 너무 좁으면 목표가 진동한다
 Z_ATOMIC = 0.06         # 경유점이 이만큼 위/아래면 원자 동작으로 바꾼다
 
@@ -94,7 +98,7 @@ class Planner:
         # 위험이 없으면 전역 argmax 와 같은 곳으로 수렴한다.
         if self.n % REPLAN_EVERY == 0 or self.target is None:
             # 목표 선택은 **전역** argmax 다 — 경유점은 명령을 진동시킨다.
-            self.target, _ = rm.argmax(starts=20, iters=50)
+            self.target, _ = rm.argmax(starts=12, iters=30)
         self.n += 1
         self.command = command_for(g, self.stage, self.target)
         return self.command, DR.yaw_command(g), g, rm
@@ -129,6 +133,10 @@ def main() -> int:
             except Exception:                          # noqa: BLE001
                 time.sleep(2.0)
         queue.clear()
+        DR.grip_reset()
+        # 팔이 들어올 통로 안에서 시작하면 비켜선다 (에피소드 시계 전).
+        if DR.retreat(node, args.task):
+            print(f"[LCo] 시작 전 통로 밖으로 비켜섬", flush=True)
         plan.target = None
         plan.n = 0
         stats["fixed"] = 0
@@ -154,7 +162,9 @@ def main() -> int:
         if fixed:
             stats["fixed"] += 1
         stats["h"] = min(stats["h"], h)
-        node.send_delta(d, a[3] > 0.5, yaw=yaw, yaw_limit=DR.YAW_RATE)
+        _gr = DR.grip_override(g)
+        node.send_delta(d, (a[3] > 0.5) if _gr is None else _gr,
+                        yaw=yaw, yaw_limit=DR.YAW_RATE)
         if (step + 1) % 60 == 0:
             _a = g.nodes.get("worker_arm")
             _dbg = ("팔없음" if _a is None else

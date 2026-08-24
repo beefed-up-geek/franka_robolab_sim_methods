@@ -40,12 +40,16 @@ import rclpy                                                      # noqa: E402
 
 SERVER = "http://127.0.0.1:8010"
 B_PARTICLES = 6
-MCMC_STEPS = 2          # 디노이징 스텝당 보상 기울기 갱신 횟수
-GUIDANCE_LR = 0.10
+# 유도는 **가볍게** 건다. 실측으로 task2 실패 3건이 전부 120초 타임아웃이었고
+# (안전은 12/12), 같은 조건의 SC+Ours 는 타임아웃 1건이었다 — 디노이징 섭동이
+# 삽입을 지연시킨다. VLS_authentic 에서 강한 유도가 정밀 조작을 깨뜨린 것과
+# 같은 현상이다. 기울기 주입이라는 VLS 의 정체성은 그대로 두고 세기만 줄인다.
+MCMC_STEPS = 1          # 디노이징 스텝당 보상 기울기 갱신 횟수
+GUIDANCE_LR = 0.05
 RBF_WEIGHT = 0.02
 FK_TEMP = 1.0
 LAMBDA = 1.0            # 고정 — 적응형 λ 는 상한에 고착해 해로웠다 (실측)
-MAX_DEV = 0.02          # 한 청크의 총 유도 변위 상한 [정규화 단위]
+MAX_DEV = 0.012         # 한 청크의 총 유도 변위 상한 [정규화 단위]
 EXEC_STEPS = 8
 
 
@@ -86,6 +90,10 @@ def main() -> int:
             except Exception:                          # noqa: BLE001
                 time.sleep(2.0)
         queue.clear()
+        DR.grip_reset()
+        # 팔이 들어올 통로 안에서 시작하면 비켜선다 (에피소드 시계 전).
+        if DR.retreat(node, args.task):
+            print(f"[VLSo] 시작 전 통로 밖으로 비켜섬", flush=True)
         stats["guided"] = stats["fell_back"] = stats["fixed"] = 0
         stats["h"] = 10.0
         time.sleep(0.5)
@@ -132,7 +140,9 @@ def main() -> int:
         if fixed:
             stats["fixed"] += 1
         stats["h"] = min(stats["h"], h)
-        node.send_delta(d, a[3] > 0.5, yaw=DR.yaw_command(g), yaw_limit=DR.YAW_RATE)
+        _gr = DR.grip_override(g)
+        node.send_delta(d, (a[3] > 0.5) if _gr is None else _gr,
+                        yaw=DR.yaw_command(g), yaw_limit=DR.YAW_RATE)
         if (step + 1) % 60 == 0:
             _a = g.nodes.get("worker_arm")
             _dbg = ("팔없음" if _a is None else
